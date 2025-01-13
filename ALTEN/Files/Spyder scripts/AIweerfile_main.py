@@ -9,6 +9,9 @@ import datetime
 #%% Variable defitions
 shortlong_border = 20
 ampm_border = 12
+month_map = {1:'Jan',2:'Feb',3:'Mar',4:'Apr',5:'May',6:'Jun',7:'Jul',8:'Aug',9:'Sep',10:'Oct',11:'Nov',12:'Dec'}
+season_bins = [0,3,6,9,12]
+season_names = ['winter','spring','summer','autumn']
 
 #%% load data
 data = pd.read_csv(r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\Data\2024-01_rws_filedata.csv",sep=';')
@@ -37,22 +40,51 @@ datac['direction'] = data.hectometreringsrichting;
 datac['HPrange'] = datac.apply(lambda x: getHPrange(x['HPstart'],x['HPend']),axis=1)
 datac['ampm'] = datac.DateTimeStart.dt.time.apply(lambda x: 'am' if x<datetime.time(ampm_border) else 'pm')
 datac['shortlong'] = datac.Duration.apply(lambda x: 'short' if x<shortlong_border else 'long')
-datac['month'] = data.DatumFileBegin.apply(lambda x: x[5:7]).astype(int)
-datac
+datac['month'] = data.DatumFileBegin.apply(lambda x: x[5:7]).astype(int).astype('category')
+datac['season'] = pd.cut(datac.month,season_bins,right=True,labels=season_names)
+datac['weekday'] = datac.DateTimeStart.dt.dayofweek
+datac.head()
+datac.tail()
+
+
+#JOIN WEATHER DATA
+#JOIN WEAKDAY INFO
 
 #%% plot the amount of trafic per month
-datac.groupby('month',observed=True).Duration.count().plot(kind='bar')
+datac.sort_values(by='month').groupby('month',observed=True).Duration.count().plot(kind='bar')
 plt.title('Number of trafics per month')
 plt.ylabel('counts')
 plt.show()
 
+#%% plot the amount of trafic per weekday split per am/pm
+datac.sort_values(by='weekday').groupby(['weekday','ampm'],observed=True).Duration.count().unstack('ampm').plot(kind='bar')
+plt.title('Number of trafics per weekday')
+plt.ylabel('counts')
+plt.show()
+
+#%% plot the amount of trafic per road
+plt.figure(figsize=(20,12))
+# plt.subplot(1,2,1)
+plt_data = datac.query('Road.str.contains("A")').groupby(['Road'],observed=True)
+plt_data['Duration'].count().sort_values(ascending=False).plot.bar(figsize=(12,6))
+plt.title('Number of trafics per road')
+plt.ylabel('counts')
+plt.show()
+
+# datac["group_based_max"] = plt_data.HPstart.transform('max')
+# plt.subplot(1,2,2)
+# datac.query('Road.str.contains("A")').groupby(['Road'],observed=True)['Duration'].count()/(datac['group_based_max']).plot.bar(figsize=(12,6))
+# plt.title('Number of trafics per road')
+# plt.ylabel('counts')
+# plt.show()
+
 #%% plot the amount of trafic per road splitted per am/pm
-gbo_per_road = datac.query('Road.str.contains("A")').groupby(['Road','ampm'],observed=True)['Duration'].count().unstack('ampm').plot.bar(figsize=(12,6))
+datac.query('Road.str.contains("A")').groupby(['Road','ampm'],observed=True)['Duration'].count().unstack('ampm').sort_values(by=['pm','am'],ascending=False).plot.bar(figsize=(12,6))
 plt.title('Number of trafics per road splitted per am/pm')
 plt.ylabel('counts')
 plt.show()
 
-#%% plot the amount of trafic per HP per road splitted per am/pm
+#%% plot the amount of trafic per HP for a specific road splitted per am/pm
 road = 'A20'
 gbo_per_road = datac.query('Road.str.contains("A")').groupby(['Road'],observed=True)
 gbo_per_road.get_group(road)
@@ -95,3 +127,4 @@ plt.show()
 #plt.savefig(r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\Output\Plots\test.png")
 
 #%%
+datac.sort_values()
