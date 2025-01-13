@@ -51,3 +51,47 @@ gbo_per_road = datac.query('Road.str.contains("A")').groupby(['Road','ampm'],obs
 plt.title('Number of trafics per road splitted per am/pm')
 plt.ylabel('counts')
 plt.show()
+
+#%% plot the amount of trafic per HP per road splitted per am/pm
+road = 'A20'
+gbo_per_road = datac.query('Road.str.contains("A")').groupby(['Road'],observed=True)
+gbo_per_road.get_group(road)
+am_oplopend = gbo_per_road.get_group(road).query('ampm=="am" & direction=="oplopend"').explode('HPrange')
+pm_oplopend = gbo_per_road.get_group(road).query('ampm=="pm" & direction=="oplopend"').explode('HPrange')
+am_aflopend = gbo_per_road.get_group(road).query('ampm=="am" & direction=="aflopend"').explode('HPrange')
+pm_aflopend = gbo_per_road.get_group(road).query('ampm=="pm" & direction=="aflopend"').explode('HPrange')
+
+plt.figure(figsize=(20,12))
+plt.suptitle(('{}').format(road))
+plt.subplot(2,2,1)
+plt.hist([am_oplopend.query('Duration<@shortlong_border')['HPrange'],pm_oplopend.query('shortlong=="short"')['HPrange']],bins=100,label=['am','pm'])
+plt.title('# of SHORT trafics splitted per am/pm - Oplopend')
+plt.ylabel('counts')
+plt.xlabel('Hectometer paal')
+plt.legend()
+
+plt.subplot(2,2,2)
+plt.hist([am_aflopend.query('Duration<@shortlong_border')['HPrange'],pm_aflopend.query('shortlong=="short"')['HPrange']],bins=100,label=['am','pm'])
+plt.title('# of SHORT trafics splitted per am/pm - Aflopend')
+plt.ylabel('counts')
+plt.xlabel('Hectometer paal')
+plt.legend()
+
+plt.subplot(2,2,3)
+plt.hist([am_oplopend.query('Duration>@shortlong_border')['HPrange'],pm_oplopend.query('shortlong=="long"')['HPrange']],bins=100,label=['am','pm'])
+plt.title('# of LONG trafics splitted per am/pm - Oplopend')
+plt.ylabel('counts')
+plt.xlabel('Hectometer paal')
+plt.legend()
+
+plt.subplot(2,2,4)
+plt.hist([am_aflopend.query('Duration>@shortlong_border')['HPrange'],pm_aflopend.query('shortlong=="long"')['HPrange']],bins=100,label=['am','pm'])
+plt.title('# of LONG trafics splitted per am/pm - Aflopend')
+plt.ylabel('counts')
+plt.xlabel('Hectometer paal')
+plt.legend()
+
+plt.show()
+#plt.savefig(r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\Output\Plots\test.png")
+
+#%%
