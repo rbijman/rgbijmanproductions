@@ -11,6 +11,7 @@ import datetime
 shortlong_border = 20
 ampm_border = 12
 month_map = {1:'Jan',2:'Feb',3:'Mar',4:'Apr',5:'May',6:'Jun',7:'Jul',8:'Aug',9:'Sep',10:'Oct',11:'Nov',12:'Dec'}
+day_map = {0:'Mon',1:'Tue',2:'Wed',3:'Thu',4:'Fri',5:'Sat',6:'Sun'}
 season_bins = [0,3,6,9,12]
 season_names = ['winter','spring','summer','autumn']
 
@@ -37,6 +38,7 @@ datac['Duration'] = data.FileDuur.str.replace(',','.').astype('float64')
 datac['Road'] = data.RouteOms#.astype('category')
 datac['HPstart'] = data.HectometerKop.str.replace(',','.').astype('float64')
 datac['HPend'] = data.HectometerStaart.str.replace(',','.').astype('float64')
+datac['distance'] = abs(datac.HPstart-datac.HPend)
 datac['direction'] = data.hectometreringsrichting;
 datac['HPrange'] = datac.apply(lambda x: getHPrange(x['HPstart'],x['HPend']),axis=1)
 datac['ampm'] = datac.DateTimeStart.dt.time.apply(lambda x: 'am' if x<datetime.time(ampm_border) else 'pm')
@@ -152,3 +154,29 @@ for road in datac.Road.unique():
     max_hp.append(datac.query('Road==@road').explode('HPrange').HPrange.value_counts().index[0])
     
 pd.DataFrame(list(zip(datac.Road.unique(),max_hp,max_counts)))
+
+
+
+#%% Some statistics
+agg_func = 'mean'
+column_of_interest = 'distance' #Duration
+
+op_vs_af = pd.crosstab(datac.Road,datac.direction,datac[column_of_interest],aggfunc=agg_func,dropna=True).fillna(pd.NA)  
+short_vs_long = pd.crosstab(datac.Road,datac.shortlong,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)  
+am_vs_pm = pd.crosstab(datac.Road,datac.ampm,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)   
+per_weekday = pd.crosstab(datac.Road,datac.weekday.sort_values().map(day_map),datac[column_of_interest],aggfunc=agg_func)[['Mon','Thu','Wed','Thu','Fri','Sat','Sun']].fillna(pd.NA)  
+per_month = pd.crosstab(datac.Road,datac.month.sort_values().map(month_map),datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)  
+
+
+trafic_per_cat = pd.concat([op_vs_af,short_vs_long,am_vs_pm,per_weekday,per_month],axis=1)
+trafic_per_cat['Total'] = datac.groupby('Road')[column_of_interest].agg(agg_func)
+
+trafic_per_cat_ranked= trafic_per_cat.rank(ascending=False,method='max').sort_values(by='Total')
+
+plt.figure(figsize=(20,20))
+sns.heatmap(trafic_per_cat_ranked,cmap='RdYlGn_r',annot=True,fmt='2.0f',cbar_kws={'label': 'Ranks'})
+plt.title(('Ranked acorrding to {} {} per category and sorted by Total').format(agg_func,column_of_interest))
+plt.show()
+
+
+# CHECK https://services.arcgis.com/nSZVuSZjHpEZZbRo/ArcGIS/rest/services/NWB_Hectometerpaaltjes/FeatureServer/0/queryTopFeatures?where=A12&topFilter=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&resultType=none&distance=0.0&units=esriSRUnit_Meter&outFields=&returnGeometry=true&maxAllowableOffset=&geometryPrecision=&outSR=&defaultSR=&returnIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&cacheHint=false&collation=&orderByFields=&resultOffset=&resultRecordCount=&returnZ=false&returnM=false&returnTrueCurves=false&returnExceededLimitFeatures=true&quantizationParameters=&sqlFormat=none&f=html&token=
