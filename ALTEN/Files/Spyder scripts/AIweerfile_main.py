@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime
+import myfunctions
 
 #%% Variable defitions
 shortlong_border = 20
@@ -45,13 +46,40 @@ datac['ampm'] = datac.DateTimeStart.dt.time.apply(lambda x: 'am' if x<datetime.t
 datac['shortlong'] = datac.Duration.apply(lambda x: 'short' if x<shortlong_border else 'long')
 datac['month'] = data.DatumFileBegin.apply(lambda x: x[5:7]).astype(int).astype('category')
 datac['date'] = datac.DateTimeStart.dt.date
+datac['time'] = datac.DateTimeStart.dt.time
 datac['season'] = pd.cut(datac.month,season_bins,right=True,labels=season_names)
 datac['weekday'] = datac.DateTimeStart.dt.dayofweek
+datac['traject'] = data.TRAJECTVILD
+datac[['trajectA','trajectB']] = datac['traject'].str.split(' - ',n=1,expand=True)
+datac['traject_city'] = datac.apply(lambda x: x.trajectA if x.trajectA in lat_lon_df.city.values else x.trajectB,axis=1)
+datac['distance_rel'] = datac.distance.div(datac.groupby(by='Road').HPstart.transform('max'))
+datac['datetime_rounded'] = datac.DateTimeStart.dt.round('60min')
+
+#Find the lat_lon_coordinates per city 
+lat_lon_df = myfunctions.get_lat_lon_per_city(datac)
+#Find the weather per city
+om = myfunctions.cache_temp_data()
+temperature_per_city = myfunctions.get_weather_per_city2(om, lat_lon_df,"temperature_2m")
+rain_per_city = myfunctions.get_weather_per_city2(om, lat_lon_df,"rain") 
+
+#add temperature              
+datac = pd.merge(left=datac,right=temperature_per_city,left_on=['traject_city','datetime_rounded'],right_on=['city','dateandtime'],how='left').drop(['dateandtime','city'],axis=1)
+#add rain
+datac = pd.merge(left=datac,right=rain_per_city[['city','dateandtime','rain']],left_on=['traject_city','datetime_rounded'],right_on=['city','dateandtime'],how='left').drop('dateandtime',axis=1)
+
+
+datac['coldwarm'] = datac.temperature_2m.apply(lambda x: 'cold' if x<10 else 'warm')
+datac['rainydry'] = datac.rain.apply(lambda x: 'rainy' if x>1 else 'dry')
+
+datac['temp_cat'] = pd.qcut(datac.temperature_2m,q=[0,0.2,0.4,0.6,0.8,1],labels=['freezing','cold','comfortable','warm','hot'])
+
+    
 datac.head()
 datac.tail()
 
-
-#JOIN WEATHER DATA
+#Other way around join
+a= pd.merge(right=datac[['traject_city','datetime_rounded','temperature_2m']],left=rain_per_city[['city','dateandtime','rain']],right_on=['traject_city','datetime_rounded'],left_on=['city','dateandtime'],how='left').drop('dateandtime',axis=1)
+a
 
 #%% plot the amount of trafic per month
 datac.sort_values(by='month').groupby('month',observed=True).Duration.count().plot(kind='bar')
@@ -159,16 +187,19 @@ pd.DataFrame(list(zip(datac.Road.unique(),max_hp,max_counts)))
 
 #%% Some statistics
 agg_func = 'mean'
-column_of_interest = 'distance' #Duration
+column_of_interest = 'distance_rel' #Duration
 
 op_vs_af = pd.crosstab(datac.Road,datac.direction,datac[column_of_interest],aggfunc=agg_func,dropna=True).fillna(pd.NA)  
 short_vs_long = pd.crosstab(datac.Road,datac.shortlong,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)  
 am_vs_pm = pd.crosstab(datac.Road,datac.ampm,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)   
 per_weekday = pd.crosstab(datac.Road,datac.weekday.sort_values().map(day_map),datac[column_of_interest],aggfunc=agg_func)[['Mon','Thu','Wed','Thu','Fri','Sat','Sun']].fillna(pd.NA)  
 per_month = pd.crosstab(datac.Road,datac.month.sort_values().map(month_map),datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)  
+cold_vs_warm = pd.crosstab(datac.Road,datac.coldwarm,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)
+rainy_vs_dry = pd.crosstab(datac.Road,datac.rainydry,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)
+temp_cat = pd.crosstab(datac.Road,datac.temp_cat,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)
 
 
-trafic_per_cat = pd.concat([op_vs_af,short_vs_long,am_vs_pm,per_weekday,per_month],axis=1)
+trafic_per_cat = pd.concat([op_vs_af,short_vs_long,am_vs_pm,per_weekday,per_month,temp_cat,rainy_vs_dry],axis=1)
 trafic_per_cat['Total'] = datac.groupby('Road')[column_of_interest].agg(agg_func)
 
 trafic_per_cat_ranked= trafic_per_cat.rank(ascending=False,method='max').sort_values(by='Total')
@@ -180,3 +211,62 @@ plt.show()
 
 
 # CHECK https://services.arcgis.com/nSZVuSZjHpEZZbRo/ArcGIS/rest/services/NWB_Hectometerpaaltjes/FeatureServer/0/queryTopFeatures?where=A12&topFilter=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&resultType=none&distance=0.0&units=esriSRUnit_Meter&outFields=&returnGeometry=true&maxAllowableOffset=&geometryPrecision=&outSR=&defaultSR=&returnIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&cacheHint=false&collation=&orderByFields=&resultOffset=&resultRecordCount=&returnZ=false&returnM=false&returnTrueCurves=false&returnExceededLimitFeatures=true&quantizationParameters=&sqlFormat=none&f=html&token=
+
+
+#%%
+datac.groupby(by='month').temperature.mean().div(datac.temperature.max()).plot()
+datac.groupby(by='month').Duration.count().div(datac.Duration.count()).plot()
+plt.show()
+
+
+sns.jointplot(datac,x='Duration',y='temperature')
+plt.show()
+
+sns.jointplot(datac,x='temperature',y='rain')
+plt.show()
+
+
+#%%
+datac.groupby(by='trajectA').temp.mean()
+plt.show()
+
+#%%
+plt.bar(x=datac.query("rainydry=='dry'").Road.sort_values().unique(),height=datac.query("rainydry=='dry'").groupby(by='Road').Duration.mean(),label='dry',color='red',alpha=.3)
+plt.bar(x=datac.query("rainydry=='rainy'").Road.sort_values().unique(),height=datac.query("rainydry=='rainy'").groupby(by='Road').Duration.mean(),label='rainy',color='green',alpha=.3)
+plt.xticks(rotation=90)
+plt.ylabel('Duration')
+plt.title('Mean Duration of trafics per road splitted by rainy/dry conditions')
+plt.legend()
+plt.show()
+
+#%%
+
+datac.groupby(by=['lat','lon']).Duration.mean().reset_index().plot.scatter('lon','lat',c='Duration')
+plt.show()
+
+datac.groupby(by=['lat','lon']).temperature_2m.min().reset_index().plot.scatter('lon','lat',c= 'temperature_2m')
+plt.show()
+
+
+plt.scatter(datac.lon,datac.lat,datac.Duration/10)
+plt.xlabel('lon')
+plt.xlabel('lat')
+
+
+cities_of_interest = ['Utrecht','Amsterdam','Rotterdam','Eindhoven','Zwolle']
+
+test = lat_lon_df.query("city in @cities_of_interest")
+
+for idx,city in enumerate(test.city):
+    plt.annotate(test.city.iloc[idx], (test.lon.iloc[idx],test.lat.iloc[idx]))
+
+plt.show()
+
+#%% 
+agg_type = 'min'
+temperature_per_city.query("lat>50 & lon>0 & lon<8").groupby('city').agg({'lon':agg_type,'lat':agg_type,'temperature_2m':agg_type}).plot.scatter(x='lon',y='lat',c='temperature_2m')
+plt.title(('{} temperature per city').format(agg_type))
+plt.show()
+
+
+
