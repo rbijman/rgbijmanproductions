@@ -8,11 +8,12 @@ Created on Thu Feb  6 13:05:19 2025
 #%%
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from dash import Dash, dcc, html, Input, Output, callback
 
 from Subfunctions import app_layout, callbacks
 
-data = pd.read_pickle(r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\temp_per_city_df")
+data = pd.read_pickle(r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\weather_data")
 data = data.set_index('dateandtime')
 datac = pd.read_pickle(r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\datac")
 datac = datac.sort_values(by=['DateTimeStart','weekday']).set_index('DateTimeStart')
@@ -23,7 +24,7 @@ app = app_layout.main(app, dcc, html, datac,data)
 
 callbacks.trafic(callback,Output,Input,pd,px,datac)
 
-callbacks.weather(callback,Output,Input,pd,px,data)
+callbacks.weather(callback,Output,Input,pd,px,data,go,datac)
 
 
 if __name__ == "__main__":

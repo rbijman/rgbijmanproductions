@@ -61,6 +61,7 @@ lat_lon_df = AIweerfile_functions.get_lat_lon_per_city(datac)
 om = AIweerfile_functions.cache_temp_data()
 temperature_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"temperature_2m")
 rain_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"rain") 
+weather_per_city = pd.concat([temperature_per_city,rain_per_city.rain],axis=1)
 
 #add temperature              
 datac = pd.merge(left=datac,right=temperature_per_city,left_on=['traject_city','datetime_rounded'],right_on=['city','dateandtime'],how='left').drop(['dateandtime','city'],axis=1)

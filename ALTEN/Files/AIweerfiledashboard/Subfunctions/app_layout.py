@@ -34,29 +34,38 @@ def main(app,dcc,html,datac,data):
                     
                     
                     html.Div(["Select Road: "]),
-                    dcc.Dropdown(datac.Road.sort_values().unique(),'A1',id='road_select'),
+                    dcc.Dropdown(datac.Road.sort_values().unique(),'A1',id='road_select_trafic'),
                     
                     html.Div(["Split by: "]),
     
-                    dcc.RadioItems(['no_split','direction','ampm','shortlong','weekday'], 'direction',id='split_by',inline=True),
+                    dcc.RadioItems(['no_split','direction','ampm','shortlong','weekday'], 'no_split',id='split_by_trafic',inline=True),
     
+                    html.Div(["Graph1: "]),
                     
                     dcc.Loading(
-                    id='loading_trafic',   
+                    id='loading_trafic1',   
                     children=[
-                     dcc.Graph(id="graph_trafic"),   
+                     dcc.Graph(id="graph_trafic1"),   
+                        ]
+                    ),
+                    
+                    html.Div(["Graph2: "]),
+
+                    
+                    dcc.Loading(
+                    id='loading_trafic2',   
+                    children=[
+                      dcc.Graph(id="graph_trafic2"),   
                         ]
                     ),
                     
                     ]),
                 
-                dcc.Tab(id='weather',label='Weather',children=[
-                    html.Div(['put here weather content']),
-                    
-                    html.H1(children="Weather Analytics"),
+                dcc.Tab(id='weather_and_trafic',label='Weather+Trafic',children=[
+                    html.H1(children="Weather + Trafic Analytics"),
                     html.P(
                         children=(
-                            "Analyze all weather"
+                            "Analyze weather + trafic"
                         ),
                     ),
                     html.Div(["Select a month: "]),
@@ -75,10 +84,15 @@ def main(app,dcc,html,datac,data):
                     
                     html.Div(["Select City: "]),
                     dcc.Dropdown(data.city.sort_values().unique(),'Gouda',id='city_select'),
+                    html.Div(["Select Road: "]),
+                    dcc.Dropdown(datac.Road.sort_values().unique(),'A1',id='road_select_weather'),
                     
-                    # html.Div(["Split by: "]),
+                    html.Div(["Split by: "]),    
+                    dcc.RadioItems(['no_split','direction','ampm','shortlong','weekday'], 'no_split',id='split_by_weather',inline=True),
+                    
+                    html.Div(["Weather type: "]),
     
-                    # dcc.RadioItems(['no_split','direction','ampm','shortlong','weekday'], 'direction',id='split_by',inline=True),
+                    dcc.RadioItems(['temperature_2m','rain'], 'temperature_2m',id='weather_type',inline=True),
     
                     
                     dcc.Loading(
