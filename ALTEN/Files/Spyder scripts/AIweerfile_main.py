@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime
-import myfunctions
+import AIweerfile_functions
 
 #%% Variable defitions
 shortlong_border = 20
@@ -56,11 +56,11 @@ datac['distance_rel'] = datac.distance.div(datac.groupby(by='Road').HPstart.tran
 datac['datetime_rounded'] = datac.DateTimeStart.dt.round('60min')
 
 #Find the lat_lon_coordinates per city 
-lat_lon_df = myfunctions.get_lat_lon_per_city(datac)
+lat_lon_df = AIweerfile_functions.get_lat_lon_per_city(datac)
 #Find the weather per city
-om = myfunctions.cache_temp_data()
-temperature_per_city = myfunctions.get_weather_per_city2(om, lat_lon_df,"temperature_2m")
-rain_per_city = myfunctions.get_weather_per_city2(om, lat_lon_df,"rain") 
+om = AIweerfile_functions.cache_temp_data()
+temperature_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"temperature_2m")
+rain_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"rain") 
 
 #add temperature              
 datac = pd.merge(left=datac,right=temperature_per_city,left_on=['traject_city','datetime_rounded'],right_on=['city','dateandtime'],how='left').drop(['dateandtime','city'],axis=1)
@@ -267,6 +267,3 @@ agg_type = 'min'
 temperature_per_city.query("lat>50 & lon>0 & lon<8").groupby('city').agg({'lon':agg_type,'lat':agg_type,'temperature_2m':agg_type}).plot.scatter(x='lon',y='lat',c='temperature_2m')
 plt.title(('{} temperature per city').format(agg_type))
 plt.show()
-
-
-
