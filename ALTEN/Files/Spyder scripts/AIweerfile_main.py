@@ -51,12 +51,14 @@ datac['season'] = pd.cut(datac.month,season_bins,right=True,labels=season_names)
 datac['weekday'] = datac.DateTimeStart.dt.dayofweek
 datac['traject'] = data.TRAJECTVILD
 datac[['trajectA','trajectB']] = datac['traject'].str.split(' - ',n=1,expand=True)
-datac['traject_city'] = datac.apply(lambda x: x.trajectA if x.trajectA in lat_lon_df.city.values else x.trajectB,axis=1)
 datac['distance_rel'] = datac.distance.div(datac.groupby(by='Road').HPstart.transform('max'))
 datac['datetime_rounded'] = datac.DateTimeStart.dt.round('60min')
+datac[['Oorzaak_1','Oorzaak_2','Oorzaak_3','Oorzaak_4']] = data[['Oorzaak_1','Oorzaak_2','Oorzaak_3','Oorzaak_4']]
 
 #Find the lat_lon_coordinates per city 
 lat_lon_df = AIweerfile_functions.get_lat_lon_per_city(datac)
+datac['traject_city'] = datac.apply(lambda x: x.trajectA if x.trajectA in lat_lon_df.city.values else x.trajectB,axis=1)
+
 #Find the weather per city
 om = AIweerfile_functions.cache_temp_data()
 temperature_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"temperature_2m")
@@ -78,9 +80,7 @@ datac['temp_cat'] = pd.qcut(datac.temperature_2m,q=[0,0.2,0.4,0.6,0.8,1],labels=
 datac.head()
 datac.tail()
 
-#Other way around join
-a= pd.merge(right=datac[['traject_city','datetime_rounded','temperature_2m']],left=rain_per_city[['city','dateandtime','rain']],right_on=['traject_city','datetime_rounded'],left_on=['city','dateandtime'],how='left').drop('dateandtime',axis=1)
-a
+
 
 #%% plot the amount of trafic per month
 datac.sort_values(by='month').groupby('month',observed=True).Duration.count().plot(kind='bar')
