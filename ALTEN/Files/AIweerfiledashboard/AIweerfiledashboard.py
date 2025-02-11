@@ -8,7 +8,6 @@ Created on Thu Feb  6 13:05:19 2025
 #%%
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from dash import Dash, dcc, html, Input, Output, callback
 
 from Subfunctions import app_layout, callbacks
@@ -24,8 +23,9 @@ app = app_layout.main(app, dcc, html, datac,data)
 
 callbacks.trafic(callback,Output,Input,pd,px,datac)
 
-callbacks.weather(callback,Output,Input,pd,px,data,go,datac)
+callbacks.weather(callback,Output,Input,pd,px,data,datac)
 
+callbacks.further(callback, Output, Input, pd, px, data, datac)
 
 if __name__ == "__main__":
     app.run_server(debug=True)
