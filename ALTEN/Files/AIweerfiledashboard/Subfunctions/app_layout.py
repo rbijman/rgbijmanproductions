@@ -21,13 +21,13 @@ def main(app,dcc,html,datac,data):
 
 
 def trafic_tab(dcc,html,datac):
-    tab_name = 'trafic'
-    trafic_tab = dcc.Tab(id=tab_name,value=tab_name,label='Trafic',children=[
+    tab_name = 'traffic'
+    trafic_tab = dcc.Tab(id=tab_name,value=tab_name,label='Traffic',children=[
     
-    html.H1(children="Trafic Analytics"),
+    html.H1(children="Traffic Analytics"),
     html.P(
         children=(
-            "Analyze all Trafics"
+            "Analyze all Traffics"
         ),
     ),
  
@@ -45,7 +45,7 @@ def trafic_tab(dcc,html,datac):
     html.Div(["Graph1: "]),
     
     dcc.Loading(
-    id='loading_trafic1',   
+    id='loading_traffic1',   
     children=[
      dcc.Graph(id=("graph_{}1").format(tab_name)),   
         ]
@@ -64,12 +64,12 @@ def trafic_tab(dcc,html,datac):
     return trafic_tab
 
 def weather_tab(dcc,html,data,datac):
-    tab_name = 'weather_and_trafic'
-    weather_tab = dcc.Tab(id=tab_name,value=tab_name,label='Weather+Trafic',children=[
-        html.H1(children="Weather + Trafic Analytics"),
+    tab_name = 'weather_and_traffic'
+    weather_tab = dcc.Tab(id=tab_name,value=tab_name,label='Weather+Traffic',children=[
+        html.H1(children="Weather + Traffic Analytics"),
         html.P(
             children=(
-                "Analyze weather + trafic"
+                "Analyze weather + traffic"
             ),
         ),
 
@@ -101,8 +101,8 @@ def weather_tab(dcc,html,data,datac):
 
 def further_tab(dcc,html,data,datac):
     tab_name = 'further'
-    new_tab = dcc.Tab(id=tab_name,value=tab_name,label='further',children=[
-        html.H1(children="further"),
+    new_tab = dcc.Tab(id=tab_name,value=tab_name,label='AIWeerFileDashboard',children=[
+        html.H1(children="AIWeerFileDashboard"),
         html.P(
             children=(
                 "Further analyses"
@@ -114,14 +114,15 @@ def further_tab(dcc,html,data,datac):
         __date_picker(dcc,datac,tab_name),             
     
         html.Div(["Select road: "]),
-        __road_picker(dcc, datac, tab_name),             
+        __road_picker(dcc, datac, tab_name),  
+           
         html.Div(["Select city: "]),
         __city_picker(dcc,data,tab_name), 
                   
          html.Div(["Select weather type: "]),
          __weather_type_picker(dcc, data, tab_name),
          
-         html.Div(["Select trafic information: "]),
+         html.Div(["Select traffic information: "]),
          __trafic_information_picker(dcc,tab_name),
          
          html.Div(["Select statistic: "]),
@@ -136,7 +137,9 @@ def further_tab(dcc,html,data,datac):
         html.Div(["Select rootcause: "]),
         __rootcause_picker(dcc,datac,tab_name),
 
-        
+        html.Div(["'exclude those traffics: "]),
+        dcc.Checklist(['grens','>50km'],[],id=('excluded_traffics_{}').format(tab_name),inline=True),        
+
         dcc.Loading(
         id='loading_further',   
         children=[
@@ -144,12 +147,14 @@ def further_tab(dcc,html,data,datac):
             ]
         ),
         
+        
+        
         ])
     return new_tab
 
 
 def __month_picker(dcc,datac,tab_name):
-    return dcc.Dropdown(datac.index.month.unique(), 1,id=('month_select_{}').format(tab_name),style={'width': '20%'})
+    return dcc.RadioItems(datac.index.month.unique(), 1,id=('month_select_{}').format(tab_name),inline=True)
 
 def __date_picker(dcc,datac,tab_name):
     return dcc.DatePickerRange(
@@ -162,7 +167,7 @@ def __date_picker(dcc,datac,tab_name):
     )
     
 def __road_picker(dcc,datac,tab_name):
-    return dcc.Dropdown(datac.Road.sort_values().unique(),'A1',id=('road_select_{}').format(tab_name),style={'width': '25%'})
+    return dcc.Dropdown(['All']+list(datac.Road.sort_values().unique()),'A1',id=('road_select_{}').format(tab_name),style={'width': '25%'})
     
 def __split_by_picker(dcc,tab_name):
     return dcc.RadioItems(['no_split','direction','ampm','shortlong','weekday'], 'no_split',id=('split_by_{}').format(tab_name),inline=True)
@@ -171,10 +176,10 @@ def __city_picker(dcc,data,tab_name):
     return dcc.Dropdown(data.city.sort_values().unique(),placeholder='Select another city',id=('city_select_{}').format(tab_name),style={'width': '50%'})
     
 def __weather_type_picker(dcc,data,tab_name):
-    return dcc.RadioItems(options={'temperature_2m':'temperature','rain':'rain'},value= 'temperature_2m',id=('weather_type_{}').format(tab_name),inline=True)
+    return dcc.RadioItems(options={'temperature_2m':'temperature','rain':'rain','snowfall':'snow','precipitation':'precipitation','wind_speed_10m':'wind','direct_radiation':'sunshine'},value= 'temperature_2m',id=('weather_type_{}').format(tab_name),inline=True)
 
 def __trafic_information_picker(dcc,tab_name):
-    return dcc.RadioItems(options={'Duration':'duration','distance':'distance'},value='Duration',id=('trafic_information_{}').format(tab_name),inline=True)
+    return dcc.RadioItems(options={'Duration':'duration','GemLengte':'distance'},value='Duration',id=('traffic_information_{}').format(tab_name),inline=True)
 
 def __statistic_picker(dcc,tab_name):
     return dcc.RadioItems(['mean','max','min','count'],'mean',id=('statistic_{}').format(tab_name),inline=True)

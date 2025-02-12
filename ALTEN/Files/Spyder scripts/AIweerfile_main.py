@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime
 import AIweerfile_functions
+import geopandas as gpd
 
 #%% Variable defitions
 shortlong_border = 20
@@ -33,8 +34,8 @@ def getHPrange(beginHP,endHP):
         return np.arange(endHP,beginHP,0.1).round(2)
 
 datac = pd.DataFrame(data["NLSitNummer"])
-datac['DateTimeStart'] = pd.to_datetime(data.DatumFileBegin+' '+data.TijdFileBegin)
-datac['DateTimeEnd'] = pd.to_datetime(data.DatumFileEind+' '+data.TijdFileEind)
+datac['DateTimeStart'] = pd.to_datetime(data.DatumFileBegin+' ' + data.TijdFileBegin)
+datac['DateTimeEnd'] = pd.to_datetime(data.DatumFileEind+' ' + data.TijdFileEind)
 datac['Duration'] = data.FileDuur.str.replace(',','.').astype('float64')
 datac['Road'] = data.RouteOms#.astype('category')
 datac['HPstart'] = data.HectometerKop.str.replace(',','.').astype('float64')
@@ -54,6 +55,7 @@ datac[['trajectA','trajectB']] = datac['traject'].str.split(' - ',n=1,expand=Tru
 datac['distance_rel'] = datac.distance.div(datac.groupby(by='Road').HPstart.transform('max'))
 datac['datetime_rounded'] = datac.DateTimeStart.dt.round('60min')
 datac[['Oorzaak_1','Oorzaak_2','Oorzaak_3','Oorzaak_4']] = data[['Oorzaak_1','Oorzaak_2','Oorzaak_3','Oorzaak_4']]
+datac['GemLengte'] = data.GemLengte.str.replace(',','.').astype('float64')/1000
 
 #Find the lat_lon_coordinates per city 
 lat_lon_df = AIweerfile_functions.get_lat_lon_per_city(datac)
@@ -63,13 +65,23 @@ datac['traject_city'] = datac.apply(lambda x: x.trajectA if x.trajectA in lat_lo
 om = AIweerfile_functions.cache_temp_data()
 temperature_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"temperature_2m")
 rain_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"rain") 
-weather_per_city = pd.concat([temperature_per_city,rain_per_city.rain],axis=1)
+snow_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"snowfall") 
+precipitation_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"precipitation") 
+wind_speed_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"wind_speed_10m") 
+weath_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df, ["rain","direct_radiation"])
 
-#add temperature              
-datac = pd.merge(left=datac,right=temperature_per_city,left_on=['traject_city','datetime_rounded'],right_on=['city','dateandtime'],how='left').drop(['dateandtime','city'],axis=1)
-#add rain
-datac = pd.merge(left=datac,right=rain_per_city[['city','dateandtime','rain']],left_on=['traject_city','datetime_rounded'],right_on=['city','dateandtime'],how='left').drop('dateandtime',axis=1)
+solar_radiation_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df, "direct_radiation")
 
+weather_per_city = pd.concat([temperature_per_city,rain_per_city.rain,snow_per_city.snowfall,precipitation_per_city.precipitation,wind_speed_per_city.wind_speed_10m,solar_radiation_per_city.direct_radiation],axis=1)
+
+#%% add weather information
+datac = pd.merge(left=datac,right=weather_per_city,left_on=['traject_city','datetime_rounded'],right_on=['city','dateandtime'],how='left').drop('dateandtime',axis=1)
+
+
+datac = pd.merge(left=datac,right=lat_lon_df,left_on='trajectA',right_on='city',suffixes=['_city','_A'],how='left').rename(columns={"city_city":"city",'lat_city':'lat','lon_city':'lon'}).drop(columns="city_A")
+datac = pd.merge(left=datac,right=lat_lon_df,left_on='trajectB',right_on='city',suffixes=['_city','_B'],how='left').rename(columns={"city_city":"city"}).drop(columns="city_B")
+datac['lat_middle'] = datac[['lat_A','lat_B']].mean(axis=1)
+datac['lon_middle'] = datac[['lon_A','lon_B']].mean(axis=1)
 
 datac['coldwarm'] = datac.temperature_2m.apply(lambda x: 'cold' if x<10 else 'warm')
 datac['rainydry'] = datac.rain.apply(lambda x: 'rainy' if x>1 else 'dry')
@@ -242,10 +254,25 @@ plt.show()
 
 #%%
 
-datac.groupby(by=['lat','lon']).Duration.mean().reset_index().plot.scatter('lon','lat',c='Duration')
+fig, gax = plt.subplots(figsize=(10,10))
+url1 = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
+world = gpd.read_file(url1)[['SOV_A3', 'POP_EST', 'CONTINENT', 'NAME', 'GDP_MD', 'geometry']]
+world = world.set_index("SOV_A3")
+world.query('SOV_A3=="NL1"').plot(alpha=0.5,ax=gax)
+datac.query('Road=="A4"').groupby(by=['lat_middle','lon_middle']).Duration.mean().reset_index().plot.scatter('lon_middle','lat_middle',c='Duration',cmap='viridis',ax=gax)
+cities_of_interest = ['Utrecht','Amsterdam','Rotterdam','Gouda','Eindhoven','Zwolle','Groningen','Maastricht']
+
+test = lat_lon_df.query("city in @cities_of_interest")
+
+for idx,city in enumerate(test.city):
+    plt.annotate(test.city.iloc[idx], (test.lon.iloc[idx],test.lat.iloc[idx]))
 plt.show()
 
-datac.groupby(by=['lat','lon']).temperature_2m.min().reset_index().plot.scatter('lon','lat',c= 'temperature_2m')
+fig = px.scatter_geo(datac.groupby(by=['lat_middle','lon_middle']).Duration.count().reset_index(),lat='lat_middle',lon='lon_middle')
+fig.update_layout(title = 'World map', title_x=0.5)
+fig.show()
+
+datac.groupby(by=['lat_middle','lon_middle']).temperature_2m.min().reset_index().plot.scatter('lon_middle','lat_middle',c= 'temperature_2m')
 plt.show()
 
 
@@ -268,3 +295,6 @@ agg_type = 'min'
 temperature_per_city.query("lat>50 & lon>0 & lon<8").groupby('city').agg({'lon':agg_type,'lat':agg_type,'temperature_2m':agg_type}).plot.scatter(x='lon',y='lat',c='temperature_2m')
 plt.title(('{} temperature per city').format(agg_type))
 plt.show()
+
+
+#%%

@@ -6,6 +6,8 @@ Created on Thu Feb  6 13:05:19 2025
 """
 
 #%%
+
+#run in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\AIweerfiledashboard.py
 import pandas as pd
 import plotly.express as px
 from dash import Dash, dcc, html, Input, Output, callback
