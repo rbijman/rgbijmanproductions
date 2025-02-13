@@ -1,0 +1,5 @@
+hostname = 'localhost'
+database = 'File_try'
+username = 'postgres'
+pwd = 'ww'
+port_id = 5432
