@@ -111,7 +111,13 @@ def further_tab(dcc,html,data,datac):
         html.Div(["Select a month: "]),
         __month_picker(dcc,datac,tab_name),             
         html.Div(["Or select a specific date range: "]),
-        __date_picker(dcc,datac,tab_name),             
+        __date_picker(dcc,datac,tab_name),   
+
+        html.Div(["Select weekdays of interest: "]),
+        __weekday_picker(dcc,tab_name),
+        
+        html.Div(["Select period on the day of interest: "]),
+        __period_picker(dcc,tab_name),          
     
         html.Div(["Select road: "]),
         __road_picker(dcc, datac, tab_name),  
@@ -119,26 +125,25 @@ def further_tab(dcc,html,data,datac):
         html.Div(["Select city: "]),
         __city_picker(dcc,data,tab_name), 
                   
-         html.Div(["Select weather type: "]),
-         __weather_type_picker(dcc, data, tab_name),
+        html.Div(["Select traffic information: "]),
+        __trafic_information_picker(dcc,tab_name),
          
-         html.Div(["Select traffic information: "]),
-         __trafic_information_picker(dcc,tab_name),
+        html.Div(["Select statistic: "]),
+        __statistic_picker(dcc,tab_name),
          
-         html.Div(["Select statistic: "]),
-         __statistic_picker(dcc,tab_name),
-         
-          html.Div(["Select frequency: "]),
-          __frequence_picker(dcc,tab_name),
-         
-         html.Div(["Select weekdays of interest: "]),
-         __weekday_picker(dcc,tab_name),
-
         html.Div(["Select rootcause: "]),
         __rootcause_picker(dcc,datac,tab_name),
 
-        html.Div(["'exclude those traffics: "]),
-        dcc.Checklist(['grens','>50km'],[],id=('excluded_traffics_{}').format(tab_name),inline=True),        
+        html.Div(["Select weather type: "]),
+        __weather_type_picker(dcc, data, tab_name),
+
+        html.Div(["Select plot frequency: "]),
+        __frequence_picker(dcc,tab_name),
+         
+        
+
+        # html.Div(["exclude those traffics: "]),
+        # dcc.Checklist(['grens','>50km'],[],id=('excluded_traffics_{}').format(tab_name),inline=True),        
 
         dcc.Loading(
         id='loading_further',   
@@ -147,6 +152,11 @@ def further_tab(dcc,html,data,datac):
             ]
         ),
         
+        html.Div(["Number of included trafics"]),
+        dcc.Textarea(id=('text_{}').format(tab_name)),
+        
+        html.Div(["Total query is:"]),
+        dcc.Textarea(id=('total_query_{}').format(tab_name), style={'width': '25%','height':150})
         
         
         ])
@@ -154,7 +164,7 @@ def further_tab(dcc,html,data,datac):
 
 
 def __month_picker(dcc,datac,tab_name):
-    return dcc.RadioItems(datac.index.month.unique(), 1,id=('month_select_{}').format(tab_name),inline=True)
+    return dcc.RadioItems(list(datac.index.month.unique())+['all'], 1,id=('month_select_{}').format(tab_name),inline=True)
 
 def __date_picker(dcc,datac,tab_name):
     return dcc.DatePickerRange(
@@ -185,7 +195,10 @@ def __statistic_picker(dcc,tab_name):
     return dcc.RadioItems(['mean','max','min','count'],'mean',id=('statistic_{}').format(tab_name),inline=True)
 
 def __weekday_picker(dcc,tab_name):
-    return dcc.Checklist(['0','1','2','3','4','5','6','all'],['1'],id=('weekday_{}').format(tab_name),inline=True)
+    return dcc.Checklist({'0':'mon','1':'tue','2':'wed','3':'thu','4':'fri','5':'sat','6':'sun','all':'all days'},['1'],id=('weekday_{}').format(tab_name),inline=True)
+
+def __period_picker(dcc,tab_name):
+    return dcc.Checklist({'0-6':'night_morning','6-10':'morning','10-15':'noon','15-19':'evening','19-24':'night-evening','all':'all day'},['all'],id=('period_{}').format(tab_name),inline=True)
 
 def __frequence_picker(dcc,tab_name):
     return dcc.RadioItems(options={'ME':'month','D':'day','h':'hour'},value='D',id=('frequency_{}').format(tab_name),inline=True)
