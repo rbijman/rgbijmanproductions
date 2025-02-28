@@ -2,100 +2,27 @@
 
 #%% import
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import datetime
-import AIweerfile_functions
 import geopandas as gpd
+import sys
+sys.path.insert(0,r'C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\Subfunctions')
+import AIweerfile_functions
 
 #%% Variable defitions
 shortlong_border = 20
 ampm_border = 12
-month_map = {1:'Jan',2:'Feb',3:'Mar',4:'Apr',5:'May',6:'Jun',7:'Jul',8:'Aug',9:'Sep',10:'Oct',11:'Nov',12:'Dec'}
-day_map = {0:'Mon',1:'Tue',2:'Wed',3:'Thu',4:'Fri',5:'Sat',6:'Sun'}
-season_bins = [0,3,6,9,12]
-season_names = ['winter','spring','summer','autumn']
+start_date = '2024-01-01'
+end_date = '2024-12-31'
 
-#%% load data
-data = pd.read_csv(r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\Data\2024-01_rws_filedata.csv",sep=';')
-dfs = pd.DataFrame()
-for year in range(1,13,1):
-    df_temp = pd.read_csv((r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\Data\2024-{:02d}_rws_filedata.csv").format(year),sep=';')
-    dfs = pd.concat([dfs, df_temp], axis=0,ignore_index=True)
-data = dfs
-
-#%%Create dataset to use for plots
-
-def getHPrange(beginHP,endHP):
-    if endHP>beginHP:
-        return np.arange(beginHP,endHP,0.1).round(2)
-    else:
-        return np.arange(endHP,beginHP,0.1).round(2)
-
-datac = pd.DataFrame(data["NLSitNummer"])
-datac['DateTimeStart'] = pd.to_datetime(data.DatumFileBegin+' ' + data.TijdFileBegin)
-datac['DateTimeEnd'] = pd.to_datetime(data.DatumFileEind+' ' + data.TijdFileEind)
-datac['Duration'] = data.FileDuur.str.replace(',','.').astype('float64')
-datac['Road'] = data.RouteOms#.astype('category')
-datac['HPstart'] = data.HectometerKop.str.replace(',','.').astype('float64')
-datac['HPend'] = data.HectometerStaart.str.replace(',','.').astype('float64')
-datac['distance'] = abs(datac.HPstart-datac.HPend)
-datac['direction'] = data.hectometreringsrichting;
-datac['HPrange'] = datac.apply(lambda x: getHPrange(x['HPstart'],x['HPend']),axis=1)
-datac['ampm'] = datac.DateTimeStart.dt.time.apply(lambda x: 'am' if x<datetime.time(ampm_border) else 'pm')
-datac['shortlong'] = datac.Duration.apply(lambda x: 'short' if x<shortlong_border else 'long')
-datac['month'] = data.DatumFileBegin.apply(lambda x: x[5:7]).astype(int).astype('category')
-datac['date'] = datac.DateTimeStart.dt.date
-datac['time'] = datac.DateTimeStart.dt.time
-datac['season'] = pd.cut(datac.month,season_bins,right=True,labels=season_names)
-datac['weekday'] = datac.DateTimeStart.dt.dayofweek
-datac['traject'] = data.TRAJECTVILD
-datac[['trajectA','trajectB']] = datac['traject'].str.split(' - ',n=1,expand=True)
-datac['distance_rel'] = datac.distance.div(datac.groupby(by='Road').HPstart.transform('max'))
-datac['datetime_rounded'] = datac.DateTimeStart.dt.round('60min')
-datac[['Oorzaak_1','Oorzaak_2','Oorzaak_3','Oorzaak_4']] = data[['Oorzaak_1','Oorzaak_2','Oorzaak_3','Oorzaak_4']]
-datac['GemLengte'] = data.GemLengte.str.replace(',','.').astype('float64')/1000
-
-#Find the lat_lon_coordinates per city 
-lat_lon_df = AIweerfile_functions.get_lat_lon_per_city(datac)
-datac['traject_city'] = datac.apply(lambda x: x.trajectA if x.trajectA in lat_lon_df.city.values else x.trajectB,axis=1)
-
-#Find the weather per city
-om = AIweerfile_functions.cache_temp_data()
-temperature_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"temperature_2m")
-rain_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"rain") 
-snow_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"snowfall") 
-precipitation_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"precipitation") 
-wind_speed_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df,"wind_speed_10m") 
-weath_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df, ["rain","direct_radiation"])
-
-solar_radiation_per_city = AIweerfile_functions.get_weather_per_city2(om, lat_lon_df, "direct_radiation")
-
-weather_per_city = pd.concat([temperature_per_city,rain_per_city.rain,snow_per_city.snowfall,precipitation_per_city.precipitation,wind_speed_per_city.wind_speed_10m,solar_radiation_per_city.direct_radiation],axis=1)
-
-#%% add weather information
-datac = pd.merge(left=datac,right=weather_per_city,left_on=['traject_city','datetime_rounded'],right_on=['city','dateandtime'],how='left').drop('dateandtime',axis=1)
+datac, lat_lon_df, weather_per_city = AIweerfile_functions.collect_and_clean_AIweerfiledata(start_date,end_date,ampm_border,shortlong_border)
 
 
-datac = pd.merge(left=datac,right=lat_lon_df,left_on='trajectA',right_on='city',suffixes=['_city','_A'],how='left').rename(columns={"city_city":"city",'lat_city':'lat','lon_city':'lon'}).drop(columns="city_A")
-datac = pd.merge(left=datac,right=lat_lon_df,left_on='trajectB',right_on='city',suffixes=['_city','_B'],how='left').rename(columns={"city_city":"city"}).drop(columns="city_B")
-datac['lat_middle'] = datac[['lat_A','lat_B']].mean(axis=1)
-datac['lon_middle'] = datac[['lon_A','lon_B']].mean(axis=1)
-
-datac['coldwarm'] = datac.temperature_2m.apply(lambda x: 'cold' if x<10 else 'warm')
-datac['rainydry'] = datac.rain.apply(lambda x: 'rainy' if x>1 else 'dry')
-
-datac['temp_cat'] = pd.qcut(datac.temperature_2m,q=[0,0.2,0.4,0.6,0.8,1],labels=['freezing','cold','comfortable','warm','hot'])
-
-    
-datac.head()
-datac.tail()
 
 
 
 #%% plot the amount of trafic per month
-datac.sort_values(by='month').groupby('month',observed=True).Duration.count().plot(kind='bar')
+datac.sort_values(by='date').groupby('month',observed=True).Duration.count().plot(kind='bar')
 plt.title('Number of trafics per month')
 plt.ylabel('counts')
 plt.show()
@@ -114,13 +41,6 @@ plt_data['Duration'].count().sort_values(ascending=False).plot.bar(figsize=(12,6
 plt.title('Number of trafics per road')
 plt.ylabel('counts')
 plt.show()
-
-# datac["group_based_max"] = plt_data.HPstart.transform('max')
-# plt.subplot(1,2,2)
-# datac.query('Road.str.contains("A")').groupby(['Road'],observed=True)['Duration'].count()/(datac['group_based_max']).plot.bar(figsize=(12,6))
-# plt.title('Number of trafics per road')
-# plt.ylabel('counts')
-# plt.show()
 
 #%% plot the amount of trafic per road splitted per am/pm
 datac.query('Road.str.contains("A")').groupby(['Road','ampm'],observed=True)['Duration'].count().unstack('ampm').sort_values(by=['pm','am'],ascending=False).plot.bar(figsize=(12,6))
@@ -200,14 +120,13 @@ pd.DataFrame(list(zip(datac.Road.unique(),max_hp,max_counts)))
 
 #%% Some statistics
 agg_func = 'mean'
-column_of_interest = 'distance_rel' #Duration
+column_of_interest = 'distance' #Duration
 
 op_vs_af = pd.crosstab(datac.Road,datac.direction,datac[column_of_interest],aggfunc=agg_func,dropna=True).fillna(pd.NA)  
 short_vs_long = pd.crosstab(datac.Road,datac.shortlong,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)  
 am_vs_pm = pd.crosstab(datac.Road,datac.ampm,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)   
-per_weekday = pd.crosstab(datac.Road,datac.weekday.sort_values().map(day_map),datac[column_of_interest],aggfunc=agg_func)[['Mon','Thu','Wed','Thu','Fri','Sat','Sun']].fillna(pd.NA)  
-per_month = pd.crosstab(datac.Road,datac.month.sort_values().map(month_map),datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)  
-cold_vs_warm = pd.crosstab(datac.Road,datac.coldwarm,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)
+per_weekday = pd.crosstab(datac.Road,datac.DateTimeStart.sort_values().dt.day_name().apply(lambda x:x[0:3]),datac[column_of_interest],aggfunc=agg_func)[['Mon','Thu','Wed','Thu','Fri','Sat','Sun']].fillna(pd.NA)  
+per_month = pd.crosstab(datac.Road,datac.DateTimeStart.sort_values().dt.month_name().apply(lambda x: x[0:3]),datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)  
 rainy_vs_dry = pd.crosstab(datac.Road,datac.rainydry,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)
 temp_cat = pd.crosstab(datac.Road,datac.temp_cat,datac[column_of_interest],aggfunc=agg_func).fillna(pd.NA)
 
@@ -227,21 +146,17 @@ plt.show()
 
 
 #%%
-datac.groupby(by='month').temperature.mean().div(datac.temperature.max()).plot()
+datac.groupby(by='month').temperature_2m.mean().div(datac.temperature_2m.max()).plot()
 datac.groupby(by='month').Duration.count().div(datac.Duration.count()).plot()
 plt.show()
 
 
-sns.jointplot(datac,x='Duration',y='temperature')
-plt.show()
+# sns.jointplot(datac,x='Duration',y='temperature_2m')
+# plt.show()
 
-sns.jointplot(datac,x='temperature',y='rain')
-plt.show()
+# sns.jointplot(datac,x='temperature_2m',y='rain')
+# plt.show()
 
-
-#%%
-datac.groupby(by='trajectA').temp.mean()
-plt.show()
 
 #%%
 plt.bar(x=datac.query("rainydry=='dry'").Road.sort_values().unique(),height=datac.query("rainydry=='dry'").groupby(by='Road').Duration.mean(),label='dry',color='red',alpha=.3)
@@ -253,6 +168,10 @@ plt.legend()
 plt.show()
 
 #%%
+datac = pd.merge(left=datac,right=lat_lon_df,left_on='trajectA',right_on='city',suffixes=['_city','_A'],how='left').rename(columns={"city_city":"city",'lat_city':'lat','lon_city':'lon'}).drop(columns="city_A")
+datac = pd.merge(left=datac,right=lat_lon_df,left_on='trajectB',right_on='city',suffixes=['_city','_B'],how='left').rename(columns={"city_city":"city"}).drop(columns="city_B")
+datac['lat_middle'] = datac[['lat_A','lat_B']].mean(axis=1)
+datac['lon_middle'] = datac[['lon_A','lon_B']].mean(axis=1)
 
 fig, gax = plt.subplots(figsize=(10,10))
 url1 = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
@@ -267,10 +186,6 @@ test = lat_lon_df.query("city in @cities_of_interest")
 for idx,city in enumerate(test.city):
     plt.annotate(test.city.iloc[idx], (test.lon.iloc[idx],test.lat.iloc[idx]))
 plt.show()
-
-fig = px.scatter_geo(datac.groupby(by=['lat_middle','lon_middle']).Duration.count().reset_index(),lat='lat_middle',lon='lon_middle')
-fig.update_layout(title = 'World map', title_x=0.5)
-fig.show()
 
 datac.groupby(by=['lat_middle','lon_middle']).temperature_2m.min().reset_index().plot.scatter('lon_middle','lat_middle',c= 'temperature_2m')
 plt.show()
@@ -291,10 +206,25 @@ for idx,city in enumerate(test.city):
 plt.show()
 
 #%% 
-agg_type = 'min'
-temperature_per_city.query("lat>50 & lon>0 & lon<8").groupby('city').agg({'lon':agg_type,'lat':agg_type,'temperature_2m':agg_type}).plot.scatter(x='lon',y='lat',c='temperature_2m')
+
+
+agg_type = 'mean'
+weather_per_city.query("lat>50 & lon>0 & lon<8").groupby('city').agg({'lon':agg_type,'lat':agg_type,'temperature_2m':agg_type}).plot.scatter(x='lon',y='lat',c='temperature_2m')
 plt.title(('{} temperature per city').format(agg_type))
 plt.show()
 
 
 #%%
+query = "index.dt.hour.isin([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]) & index.dt.weekday.astype('str').isin(['0','1','2','3','4','5','6']) & Oorzaak_4.isin(['Incident', 'Ongeval', 'Hoge intensiteit', 'Ongepland onderhoud', 'Overige oorzaken', 'Aanleg en gepland onderhoud', '(Zeer extreme) weersomstandigheden', 'Evenement', None]) & Road in ['A10', 'A4', 'A27', 'A58', 'A2', 'N35', 'A1', 'A7', 'N99', 'N9', 'A16', 'A9', 'A12', 'A73', 'N3', 'A67', 'A76', 'A29', 'N57', 'A20', 'N59', 'A50', 'A5', 'N33', 'A15', 'A35', 'A28', 'A8', 'N325', 'A79', 'N50', 'N44', 'A59', 'A325', 'N2', 'A13', 'N61', 'N36', 'A18', 'N7', 'A348', 'N11', 'A270', 'A44', 'A30', 'A22', 'N65', 'A6', 'N200', 'N256', 'A32', 'A208', 'N348', 'N48', 'A17', 'N18', 'N31', 'A38', 'A65', 'A326', 'A200', 'N46', 'N15', 'A77', 'N326', 'N270', 'A74', 'N209', 'A256', 'A37', 'A31', 'N14', 'N343', 'N307', 'N370', 'N32', 'N434', 'N230']"
+
+weathertype = 'wind_speed_10m'
+
+plt.scatter(x=datac.query(query).reset_index().resample('D',on='DateTimeStart')[weathertype].max(),y=datac.query(query).reset_index().resample('D',on='DateTimeStart')['GemLengte'].count())
+plt.show()
+
+from scipy.stats import spearmanr
+
+df = pd.DataFrame()
+df['pres'] = datac.query(query).reset_index().resample('D',on='DateTimeStart')[weathertype].max()
+df['leng'] = datac.query(query).reset_index().resample('D',on='DateTimeStart')['GemLengte'].count()
+spearmanr(df.dropna().pres,df.dropna().leng)

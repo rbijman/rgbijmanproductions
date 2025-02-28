@@ -16,14 +16,14 @@ class python_postgres:
     global psql
     
     def __init__(self,filename,section):    
-        self.__db_info = self.__get_db_info(filename,section)
-        self.connect_to_postgres()
+        self.db_info = self.get_db_info(filename,section)
+        self.connection = self.connect_to_postgres()
         
 #Public Members           
     def generic_set_query(self,*args):
         conn = None
         try:
-            with psy.connect(**self.__db_info) as conn:
+            with psy.connect(**self.db_info) as conn:
                 
                 with conn.cursor() as cur:
                     match len(args):            
@@ -52,8 +52,8 @@ class python_postgres:
               
     def generic_get_query(self,get_query):
         try: 
-            with psy.connect(**self.__db_info) as conn:
-                    df = psql.read_sql(get_query,conn)
+            with psy.connect(**self.db_info) as conn:
+                    df = psql.read_sql(get_query,conn,'index')
                     # print('I got for you what you requested')
                     return df
                     
@@ -67,7 +67,7 @@ class python_postgres:
     def create_table(self,create_query):
         conn = None
         try:
-            with psy.connect(**self.__db_info) as conn:
+            with psy.connect(**self.db_info) as conn:
                 
                 with conn.cursor() as cur:
                     cur.execute(create_query)
@@ -81,14 +81,14 @@ class python_postgres:
               
     def connect_to_postgres(self):
         try:
-            with psy.connect(**self.__db_info) as conn:
+            with psy.connect(**self.db_info) as conn:
                 print('Connect to the PostgreSQL server.')
                 return conn
         except (psy.DatabaseError,Exception) as error:
-            print(error)   
+            print(error)
                     
-#Private members    
-    def __get_db_info(self,filename,section):
+ 
+    def get_db_info(self,filename,section):
         # instantiating the parser object
         parser=configpar.ConfigParser()
         parser.read(filename)
