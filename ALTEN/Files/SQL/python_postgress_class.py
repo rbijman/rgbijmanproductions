@@ -19,7 +19,31 @@ class python_postgres:
         self.db_info = self.get_db_info(filename,section)
         self.connection = self.connect_to_postgres()
         
-#Public Members           
+#Public Members     
+
+    def get_db_info(self,filename,section):
+        # instantiating the parser object
+        parser=configpar.ConfigParser()
+        parser.read(filename)
+    
+        db_info={}
+        if parser.has_section(section):
+             # items() method returns (key,value) tuples
+             key_val_tuple = parser.items(section) 
+             for item in key_val_tuple:
+                 db_info[item[0]]=item[1] # index 0: key & index 1: value
+    
+        return db_info      
+    
+    def connect_to_postgres(self):
+        try:
+            with psy.connect(**self.db_info) as conn:
+                print('Connect to the PostgreSQL server.')
+                return conn
+        except (psy.DatabaseError,Exception) as error:
+            print(error)
+            
+            
     def generic_set_query(self,*args):
         conn = None
         try:
@@ -79,28 +103,10 @@ class python_postgres:
             if conn is not None:
               conn.close()      
               
-    def connect_to_postgres(self):
-        try:
-            with psy.connect(**self.db_info) as conn:
-                print('Connect to the PostgreSQL server.')
-                return conn
-        except (psy.DatabaseError,Exception) as error:
-            print(error)
+
                     
  
-    def get_db_info(self,filename,section):
-        # instantiating the parser object
-        parser=configpar.ConfigParser()
-        parser.read(filename)
-    
-        db_info={}
-        if parser.has_section(section):
-             # items() method returns (key,value) tuples
-             key_val_tuple = parser.items(section) 
-             for item in key_val_tuple:
-                 db_info[item[0]]=item[1] # index 0: key & index 1: value
-    
-        return db_info
+
      
         
 
