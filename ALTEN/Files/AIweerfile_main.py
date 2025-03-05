@@ -17,9 +17,15 @@ end_date = '2024-12-31'
 
 datac, lat_lon_df, weather_per_city = AIweerfile_functions.collect_and_clean_AIweerfiledata(start_date,end_date,ampm_border,shortlong_border)
 
+#%% Update Postgresql database
+working_dir = r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files"
+data_to_update = datac
+sql_table_name = 'trafic'
+AIweerfile_functions.update_sql_database(working_dir,AIweerfile_functions,data_to_update,sql_table_name)
 
-
-
+#%% Update Pickles
+datac_file_path = working_dir + r"\ProcessedData\datac"
+AIweerfile_functions.update_pickle_with_sql_database_data(AIweerfile_functions,working_dir,datac_file_path,'trafics')
 
 #%% plot the amount of trafic per month
 datac.sort_values(by='date').groupby('month',observed=True).Duration.count().plot(kind='bar')
