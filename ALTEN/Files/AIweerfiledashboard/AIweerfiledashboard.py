@@ -23,16 +23,28 @@ import plotly.express as px
 from dash import Dash, dcc, html, Input, Output, callback
 import dash_bootstrap_components as dbc
 from Subfunctions import app_layout, callbacks, AIweerfile_functions
+import sys
+
+if len(sys.argv)==1:
+    use_pickle=0
+else:
+    use_pickle = int(sys.argv[1])
+
+print(use_pickle)
 
 working_dir = r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files"
 api_base = 'http://127.0.0.1:5000/AIWeerFile_api/'
 
-print('loading the data')
-weather_data = pd.read_pickle(working_dir + r"\ProcessedData\weather_data")
-weather_data = weather_data.sort_values(by='date').set_index('date')
-datac = pd.read_pickle(working_dir + r"\ProcessedData\datac")
-datac = datac.sort_values(by=['DateTimeStart','weekday']).set_index('DateTimeStart')
-print('ready loading the data')
+if use_pickle==1:
+    print('loading the data')
+    weather_data = pd.read_pickle(working_dir + r"\ProcessedData\weather_data")
+    weather_data = weather_data.sort_values(by='date').set_index('date')
+    datac = pd.read_pickle(working_dir + r"\ProcessedData\datac")
+    datac = datac.sort_values(by=['DateTimeStart','weekday']).set_index('DateTimeStart')
+    print('ready loading the data')
+else:
+    datac = None
+    weather_data = None
 
 app = Dash(__name__,external_stylesheets=[dbc.themes.CERULEAN])
 
