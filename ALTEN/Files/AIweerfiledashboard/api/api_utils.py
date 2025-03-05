@@ -30,26 +30,33 @@ def column_query(columns,jsonify,table_name):
     query = f"SELECT {select_columns} FROM {table_name} WHERE 1=1"
     return query
 
-def all_filters_query(query,all_filters):
+def all_filters_query(query,all_filters,start_date,end_date,hours,weekdays,date_column,jsonify):
     filter_values = []
         
     if all_filters:
         for filter_key,filter_value in all_filters.items():
-            if filter_key in ['"Road"']:
+            # query,filter_values = api_utils.filter_query(query, filters)
+            if filter_key in ['start_date','hours','weekdays']:
+                query,filter_values = __date_time_query(query,filter_values,start_date,end_date,hours,weekdays,date_column,jsonify)            
+            elif filter_key in ['"Road"','"Oorzaak_4"','city']:
                 value_list = [value.strip() for value in filter_value.split(',')]
-                print(value_list)
                 query += f' AND {filter_key} IN %s'
                 filter_values.append(tuple(value_list))
     return query, filter_values
     
-def date_time_query(query,filter_values,start_date,end_date,hours,weekdays,jsonify):
+
+def datetime_converter(o):
+    if isinstance(o, datetime):
+        return o.isoformat()
+    
+#helper functions 
+def __date_time_query(query,filter_values,start_date,end_date,hours,weekdays,date_column,jsonify):
     if start_date and end_date:
-        print(start_date)
         try:
             start_date = datetime.strptime(start_date, '%Y-%m-%d')
             end_date = datetime.strptime(end_date, '%Y-%m-%d')
             if start_date < end_date:
-                query += ' AND "DateTimeStart" BETWEEN %s AND %s'
+                query += f' AND {date_column} BETWEEN %s AND %s'
                 filter_values.extend([start_date, end_date])
             else:
                 raise ValueError("Start date cannot be after end date")                        
@@ -58,7 +65,7 @@ def date_time_query(query,filter_values,start_date,end_date,hours,weekdays,jsoni
     
     if hours is not None:
         hours_list = [int(hour) for hour in hours.split(',')]
-        query += ' AND EXTRACT(HOUR FROM "DateTimeStart") IN %s'
+        query += f' AND EXTRACT(HOUR FROM {date_column}) IN %s'
         filter_values.append(tuple(hours_list))    
 
     if weekdays is not None:
@@ -66,11 +73,6 @@ def date_time_query(query,filter_values,start_date,end_date,hours,weekdays,jsoni
         weekday_list = [int(weekday)+1 for weekday in weekdays.split(',')]
         weekday_list = [0 if x > 6 else x for x in weekday_list]
         print(weekday_list)
-        query += "AND DATE_PART('DOW'" + ',"DateTimeStart") IN %s'
+        query += "AND DATE_PART('DOW'" + f',{date_column}) IN %s'
         filter_values.append(tuple(weekday_list))
     return query, filter_values
-               
-
-def datetime_converter(o):
-    if isinstance(o, datetime):
-        return o.isoformat()
