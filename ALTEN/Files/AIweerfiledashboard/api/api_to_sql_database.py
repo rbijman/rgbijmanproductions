@@ -32,16 +32,13 @@ def get_data():
             
             #Deal with filters
             all_filters = request.args.to_dict()
+            date_column = request.args.get('datecolumn',None)
             hours = request.args.get('hours', None)
             weekdays = request.args.get('weekdays',None)
             start_date = request.args.get('start_date', None)
             end_date = request.args.get('end_date', None)
             
-            query, filter_values = api_utils.all_filters_query(query,all_filters)
-            
-            # query,filter_values = api_utils.filter_query(query, filters)
-            if start_date or end_date or hours or weekdays:
-                query,filter_values = api_utils.date_time_query(query,filter_values,start_date,end_date,hours,weekdays,jsonify)
+            query, filter_values = api_utils.all_filters_query(query,all_filters,start_date,end_date,hours,weekdays,date_column,jsonify)
             
             #Apply query on database            
             cursor.execute(query,filter_values)
@@ -49,6 +46,7 @@ def get_data():
             #Construct the output
             column_names = [desc[0] for desc in cursor.description]
             data = list(cursor)
+            del cursor
             result = [dict(zip(column_names,row)) for row in data]
             response = json.dumps({"columns":column_names,"data":result},default = api_utils.datetime_converter,indent=4)
     return response
@@ -57,24 +55,38 @@ def get_data():
 @app.get("/AIWeerFile_api/unique")
 def get_unique():
     with my_pypg.connection.cursor() as cursor:
-        
+        table = request.args.get('table',None)
         column = request.args.get('columns',None)
+        date_column = request.args.get('datecolumn',None)
         print(column)
         
         if column in ["year","month"]:
             if column=="year":
-                subquery = "DATE_PART('Y'," + '"DateTimeStart")'
+                subquery = "DATE_PART('Y'," + f'{date_column})'
             elif column=="month":
-                subquery = "DATE_PART('month'," + '"DateTimeStart")'
+                subquery = "DATE_PART('month'," + f'{date_column})'
         else:                
             subquery = column    
         print(subquery)
-        cursor.execute(f'SELECT DISTINCT {subquery} FROM trafics')    
+        cursor.execute(f'SELECT DISTINCT {subquery} FROM {table}')    
         unique_vals = cursor.fetchall()
                
         #Construct output
         all_unique_vals = [unique_val[0] for unique_val in unique_vals]
         return jsonify(all_unique_vals)
+    
+@app.get("/AIWeerFile_api/generic")
+def get_generic():
+    with my_pypg.connection.cursor() as cursor:
+        
+        query = request.args.get('query',None)
+        
+        if query:
+            #DO SOME CHECKS FOR THE QUERY HERE TO NOT RUIN THE DATABASE
+            cursor.execute(query)
+            generic_vals = cursor.fetchall()
+        return jsonify(generic_vals)
+            
 
 
 if __name__ == '__main__':
