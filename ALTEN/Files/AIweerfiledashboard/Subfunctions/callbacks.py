@@ -4,8 +4,8 @@ Created on Fri Feb  7 14:16:27 2025
 
 @author: rbijman
 """
-def main(callback, Output, Input, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions):
-    AIWeerFile(callback, Output, Input, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions)
+def main(callback, Output, Input, State, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions,callback_context):
+    AIWeerFile(callback, Output, Input, State, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions,callback_context)
     update_data(callback, Output, Input, working_dir,AIweerfile_functions)
     # traffic(callback,Output,Input,pd,px,datac,working_dir,api_base,AIweerfile_functions)
     # weather(callback,Output,Input,pd,px,weather_data,datac,api_base,AIweerfile_functions)
@@ -100,11 +100,13 @@ def weather(callback,Output,Input,pd,px,weather_data,datac,api_base,AIweerfile_f
         subfig.update_layout(title_x=0.5,title_text=('Number of traffic on {} between {} and {} vs {} in {}').format(road,pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date(),weather_type,city))        
         return subfig
     
-def AIWeerFile(callback,Output,Input,pd,px,weather_data,datac,working_dir,api_base,AIweerfile_functions):
+def AIWeerFile(callback,Output,Input,State,pd,px,weather_data,datac,working_dir,api_base,AIweerfile_functions,callback_context):
     tab_name = 'further'
     __select_dates(callback,Output,Input,pd,('date_range_{}').format(tab_name),('month_select_{}').format(tab_name),('year_select_{}').format(tab_name),datac,api_base,AIweerfile_functions)
  
     @callback(
+        Output(('current_traffic_data_{}').format(tab_name),'data'),
+        Output(('current_weather_data_{}').format(tab_name),'data'),
         Output(('graph_{}').format(tab_name),'figure'),
         Output(('text_{}').format(tab_name),'value'),
         Output(('total_pandas_query_{}').format(tab_name),'value'),
@@ -118,16 +120,30 @@ def AIWeerFile(callback,Output,Input,pd,px,weather_data,datac,working_dir,api_ba
         Input(('weather_type_{}').format(tab_name),'value'),
         Input(('road_select_{}').format(tab_name),'value'),
         Input(('traffic_information_{}').format(tab_name),'value'),
-        Input(('statistic_{}').format(tab_name),'value'),
+        Input(('statistic_traffic_{}').format(tab_name),'value'),
         Input(('weekday_{}').format(tab_name),'value'),
         Input(('period_{}').format(tab_name),'value'),
-        Input(('frequency_{}').format(tab_name),'value'),
+        Input(('frequency_traffic_{}').format(tab_name),'value'),
         Input(('rootcause_{}').format(tab_name),'value'),
-        Input(("graph_{}").format(tab_name),'clickData')
+        Input(('statistic_weather_{}').format(tab_name),'value'),
+        Input(('frequency_weather_{}').format(tab_name),'value'),      
+        Input(('weather_marker_size_{}').format(tab_name),'value'),
+        Input(("graph_{}").format(tab_name),'clickData'),
+        State(('current_traffic_data_{}').format(tab_name), 'data'),
+        State(('current_weather_data_{}').format(tab_name), 'data')
+
         # Input(('excluded_traffics_{}').format(tab_name),'value') NOT IN USE ANYMORE
         )
-    def update_output(start_date,end_date,city,weather_type,road,traffic_information,statistic,weekday,period,frequency,rootcause,clickdata):
+    def update_output(start_date,end_date,city,weather_type,road,traffic_information,statistic_traffic,weekday,period,frequency_traffic,rootcause,statistic_weather,frequency_weather,weather_marker_size,clickdata,current_traffic_data,current_weather_data):
         
+        traffic_trigger_id_list = ['date_range','road_select','traffic_information','weekday','period','rootcause']
+        traffic_trigger_id_list = [item + f'_{tab_name}' for item in traffic_trigger_id_list]
+        weather_trigger_id_list = ['date_range','city_select','weather_type','weekday','period']
+        weather_trigger_id_list = [item + f'_{tab_name}' for item in weather_trigger_id_list]
+        
+        triggered_id = callback_context.triggered[0]['prop_id'].split('.')[0] if callback_context.triggered else None
+        
+        print(triggered_id)
         from plotly.subplots import make_subplots
         # AIweerfile_functions = __import_AIweerfile_functions(working_dir)
 
@@ -138,63 +154,60 @@ def AIWeerFile(callback,Output,Input,pd,px,weather_data,datac,working_dir,api_ba
         traffic_columns =  ' , '.join(['"DateTimeStart"','"Road"','"direction"','"shortlong"','"ampm"']) + ' , ' + '"' + traffic_information + '"'        
         weather_table_name = 'weather'
         weather_columns = ' , '.join(['date']) + ' , ' + '"' + weather_type + '"'
-        total_pandas_traffic_query,total_api_traffic_query,total_pandas_weather_query,total_API_weather_query = __combine_all_queries(period,weekday,rootcause,road,city,pd.to_datetime(start_date),pd.to_datetime(end_date),traffic_table_name,traffic_columns,weather_table_name,weather_columns)
+        all_queries = __combine_all_queries(period,weekday,rootcause,road,city,pd.to_datetime(start_date),pd.to_datetime(end_date),traffic_table_name,traffic_columns,weather_table_name,weather_columns)
         
-        if datac is None:
-            data = AIweerfile_functions.call_AIWeerFileAPI(api_base,'main',total_api_traffic_query)
-            queried_data = pd.DataFrame(data['data'],columns=data['columns'])
-            queried_data['DateTimeStart'] = pd.to_datetime(queried_data['DateTimeStart'])
-            queried_data = queried_data.sort_values('DateTimeStart').set_index('DateTimeStart')
-            del data
-            print(queried_data.shape)
-        else:
-            queried_data = datac.query(total_pandas_traffic_query).loc[start_date:end_date]
+        queried_traffic_data, queried_weather_data = __load_all_data(datac,weather_data,triggered_id,api_base,all_queries,AIweerfile_functions,pd,current_traffic_data,current_weather_data,start_date,end_date,traffic_trigger_id_list,weather_trigger_id_list)
         
-        nr_of_traffics_included = str(queried_data.shape[0])
+        traffic_data_to_store = queried_traffic_data.to_dict()
+        weather_data_to_store = queried_weather_data.to_dict()
+        
+        queried_traffic_data = queried_traffic_data.sort_values('DateTimeStart').set_index('DateTimeStart')
+        queried_weather_data = queried_weather_data.sort_values('date').set_index('date')[weather_type]
+
+        print(queried_traffic_data.shape)
+            
+        nr_of_traffics_included = str(queried_traffic_data.shape[0])
         #resample the data
-        plot_data = queried_data.reset_index().resample(frequency,on='DateTimeStart')[traffic_information].agg(statistic)
-        plot_data = __shift_time_index(plot_data,frequency).to_frame()
+        traffic_plot_data = queried_traffic_data.reset_index().resample(frequency_traffic,on='DateTimeStart')[traffic_information].agg(statistic_traffic)
+        traffic_plot_data = __shift_time_index(traffic_plot_data,frequency_traffic).to_frame()
+        
+        weather_plot_data = queried_weather_data.reset_index().resample(frequency_weather,on='date')[weather_type].agg(statistic_weather)
+        weather_plot_data = __shift_time_index(weather_plot_data,frequency_weather).to_frame().dropna()
+
         
         color_dict = {0:'blue',1:'red',2:'green',3:'orange',4:'black',5:'gold',6:'pink'}
-        c = plot_data.index.weekday.map(color_dict)
+        c = traffic_plot_data.index.weekday.map(color_dict)
+
         
-        if weather_data is None:
-            temp_data = AIweerfile_functions.call_AIWeerFileAPI(api_base,'main',total_API_weather_query)
-            weather_plot_data = pd.DataFrame(temp_data['data'],columns=temp_data['columns'])
-            weather_plot_data['date'] = pd.to_datetime(weather_plot_data['date'])
-            weather_plot_data = weather_plot_data.sort_values('date').set_index('date')[weather_type]
-            del temp_data
-        else:
-            weather_plot_data = weather_data.query(total_pandas_weather_query).loc[start_date:end_date][weather_type]        
      
         #plotting
-        fig1 = px.bar(plot_data,text=plot_data.index.weekday.astype('str'))#,color_discrete_sequence=['green','red','blue','goldenrod','magenta','orange','brown'])#,color=plot_data.index.weekday.astype('str'))      
+        fig1 = px.bar(traffic_plot_data,text=traffic_plot_data.index.weekday.astype('str'))#,color_discrete_sequence=['green','red','blue','goldenrod','magenta','orange','brown'])#,color=plot_data.index.weekday.astype('str'))      
         fig1.update_layout(title_x=0.5,barmode='overlay',showlegend=False)
-        fig1.update_traces(opacity=0.5,width=__define_bar_width(frequency),marker_color=c)
-        fig2 = px.line(weather_plot_data,color_discrete_sequence=['green'])                        
-        fig2.update_traces(yaxis='y2',opacity=0.5)
+        fig1.update_traces(opacity=0.5,width=__define_bar_width(frequency_traffic),marker_color=c)
+        fig2 = px.line(weather_plot_data,color_discrete_sequence=['green'],markers=True)                        
+        fig2.update_traces(yaxis='y2',opacity=0.5,mode='lines+markers',marker=dict(size=weather_marker_size))
         subfig = make_subplots(specs=[[{"secondary_y": True}]])
         subfig.add_traces(fig2.data + fig1.data)
         subfig.update_xaxes({'range': (pd.to_datetime(start_date), pd.to_datetime(end_date))})
-        subfig.update_layout(yaxis_title=('{} {}').format(statistic,traffic_information))
+        subfig.update_layout(yaxis_title=('{} {}').format(statistic_traffic,traffic_information))
         subfig.update_layout(yaxis2_title = weather_type)
-        subfig.update_layout(title_x=0.5,title_text=('{} traffic {} on {} between {} and {} vs {} in {}').format(statistic,traffic_information,plot_title_road,pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date(),weather_type,city))        
+        subfig.update_layout(title_x=0.5,title_text=('{} traffic {} on {} between {} and {} vs {} in {}').format(statistic_traffic,traffic_information,plot_title_road,pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date(),weather_type,city))        
         
         
-        total_pandas_query_output = 'datac.query("' + total_pandas_traffic_query+ '")' + '.loc["'+pd.to_datetime(start_date).strftime('%Y-%m-%d').replace('-0','-')+'":"'+pd.to_datetime(end_date).strftime('%Y-%m-%d').replace('-0','-')+'"]'
+        total_pandas_query_output = 'datac.query("' + all_queries['pandas_traffic']+ '")' + '.loc["'+pd.to_datetime(start_date).strftime('%Y-%m-%d').replace('-0','-')+'":"'+pd.to_datetime(end_date).strftime('%Y-%m-%d').replace('-0','-')+'"]'
                 
         if clickdata != None:
-            date1,date2 = __define_datetime_range(clickdata,frequency,pd)  
+            date1,date2 = __define_datetime_range(clickdata,frequency_traffic,pd)  
             print(date1)
             print(date2)
-            plot_data_fig3 = queried_data.loc[date1:date2]
+            plot_data_fig3 = queried_traffic_data.loc[date1:date2]
         else:
             date1 = start_date
             date2 = end_date
-            plot_data_fig3 = queried_data
-        fig3 = px.bar(plot_data_fig3.groupby('Road')[traffic_information].agg(statistic).sort_values(ascending=False))
-        fig3.update_layout(title_x=0.5,title_text=('{} traffic {} on {} between {} and {}').format(statistic,traffic_information,plot_title_road,date1,date2))
-        fig3.update_layout(yaxis_title=('{} {}').format(statistic,traffic_information))
+            plot_data_fig3 = queried_traffic_data
+        fig3 = px.bar(plot_data_fig3.groupby('Road')[traffic_information].agg(statistic_traffic).sort_values(ascending=False))
+        fig3.update_layout(title_x=0.5,title_text=('{} traffic {} on {} between {} and {}').format(statistic_traffic,traffic_information,plot_title_road,date1,date2))
+        fig3.update_layout(yaxis_title=('{} {}').format(statistic_traffic,traffic_information))
         
         # #heatmap plotting
         # op_vs_af = pd.crosstab(queried_data.Road,queried_data.direction,queried_data[traffic_information],aggfunc=statistic,dropna=True).fillna(pd.NA)  
@@ -211,7 +224,7 @@ def AIWeerFile(callback,Output,Input,pd,px,weather_data,datac,working_dir,api_ba
         # trafic_per_cat_ranked= trafic_per_cat.rank(ascending=False,method='max').sort_values(by='Total')
         # heatmap = px.imshow(trafic_per_cat_ranked.T)
          
-        return subfig,nr_of_traffics_included,total_pandas_query_output,total_api_traffic_query,fig3,{"display": "none"}#,heatmap
+        return traffic_data_to_store,weather_data_to_store,subfig,nr_of_traffics_included,total_pandas_query_output,all_queries['API_traffic'],fig3,{"display": "none"}#,heatmap
     
     @callback(
         Output("graph_{}".format(tab_name), "clickData"),
@@ -345,7 +358,8 @@ def __combine_all_queries(period,weekday,rootcause,road,city,start_date,end_date
     total_API_weather_query = '?table=' + weather_table_name + '&' + 'columns=' + weather_columns + '&' + 'datecolumn=date' + start_date_filter + end_date_filter + period_filter + city_filter + weekday_filter
     print(total_API_traffic_query)
     print(total_API_weather_query)
-    return total_pandas_traffic_query, total_API_traffic_query, total_pandas_weather_query, total_API_weather_query
+    all_queries = {'pandas_traffic':total_pandas_traffic_query,'API_traffic':total_API_traffic_query,'pandas_weather':total_pandas_weather_query,'API_weather':total_API_weather_query}
+    return all_queries
     
     
 def __prep_inputs(road,city,weekday,period,datac,api_base,AIweerfile_functions):
@@ -384,7 +398,34 @@ def __define_datetime_range(clickdata,frequency,pd):
             date2 = date1
     return date1,date2
 
-
+def __load_all_data(datac,weather_data,triggered_id,api_base,all_queries,AIweerfile_functions,pd,current_traffic_data,current_weather_data,start_date,end_date,traffic_trigger_id_list,weather_trigger_id_list):
+    
+    if triggered_id in traffic_trigger_id_list:
+        if datac is None:
+            data = AIweerfile_functions.call_AIWeerFileAPI(api_base,'main',all_queries['API_traffic'])
+            queried_traffic_data = pd.DataFrame(data['data'],columns=data['columns'])
+            queried_traffic_data['DateTimeStart'] = pd.to_datetime(queried_traffic_data['DateTimeStart'])
+            del data
+        else:
+            queried_traffic_data = datac.query(all_queries['pandas_traffic']).loc[start_date:end_date]
+    else:
+        queried_traffic_data = pd.DataFrame(current_traffic_data)
+        queried_traffic_data['DateTimeStart'] = pd.to_datetime(queried_traffic_data['DateTimeStart'])
+    
+    if triggered_id in weather_trigger_id_list:
+        if weather_data is None:
+            temp_data = AIweerfile_functions.call_AIWeerFileAPI(api_base,'main',all_queries['API_weather'])
+            queried_weather_data = pd.DataFrame(temp_data['data'],columns=temp_data['columns'])
+            queried_weather_data['date'] = pd.to_datetime(queried_weather_data['date'])
+            del temp_data
+        else:
+            queried_weather_data = weather_data.query(all_queries['pandas_weather']).loc[start_date:end_date]     
+    else:
+            
+        queried_weather_data = pd.DataFrame(current_weather_data)
+        queried_weather_data['date'] = pd.to_datetime(queried_weather_data['date'])
+    
+    return queried_traffic_data, queried_weather_data
 
 
 

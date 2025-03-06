@@ -192,14 +192,25 @@ def AIWeerFile_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functi
                 html.Div(["Select traffic information: "]),
                 __trafic_information_picker(dcc,tab_name),
                  
-                html.Div(["Select statistic: "]),
-                __statistic_picker(dcc,tab_name),
+                html.Div(["Select traffic statistic: "]),
+                __statistic_picker(dcc,tab_name,'traffic'),
+                
+                html.Div(["Select traffic plot frequency: "]),
+                __frequence_picker(dcc,tab_name,'traffic'),
                 
                 html.Div(["Select weather type: "]),
                 __weather_type_picker(dcc, tab_name),
 
-                html.Div(["Select plot frequency: "]),
-                __frequence_picker(dcc,tab_name),
+                html.Div(["Select weather plot frequency: "]),
+                __frequence_picker(dcc,tab_name,'weather'),
+                
+                html.Div(["Select weather statistic: "]),
+                __statistic_picker(dcc,tab_name,'weather'),
+                
+                html.Div(["Select weather marker size: "]),
+                dcc.Dropdown(list(range(8,17,1)),10,id=('weather_marker_size_{}').format(tab_name),style={'width':'100px'})
+                
+                                
             ],direction="horizontal",gap=3),   
 
         ],gap=3),
@@ -235,7 +246,9 @@ def AIWeerFile_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functi
         html.Div(["Total Pandas query is:"]),
         dcc.Textarea(id=('total_pandas_query_{}').format(tab_name), style={'width': '25%','height':150}),
         
-        dcc.Store(id='intermediate-value')
+        dcc.Store(id=('current_traffic_data_{}').format(tab_name),data=[]),
+        dcc.Store(id=('current_weather_data_{}').format(tab_name),data=[])
+
         ])
     return new_tab
 
@@ -277,7 +290,6 @@ def __date_picker(dcc,pd,datac,tab_name,api_base,AIweerfile_functions):
     if datac is None:
         min_date = pd.to_datetime(AIweerfile_functions.call_AIWeerFileAPI(api_base,'generic',"?query=SELECT MIN(" + '"DateTimeStart") FROM trafics')[0]).round('D')[0]
         max_date = pd.to_datetime(AIweerfile_functions.call_AIWeerFileAPI(api_base,'generic',"?query=SELECT MAX(" + '"DateTimeStart") FROM trafics')[0]).round('D')[0]
-        print(min_date)
     else:
         min_date = datac.index.round('D').min()
         max_date = datac.index.round('D').max()
@@ -314,8 +326,8 @@ def __weather_type_picker(dcc,tab_name):
 def __trafic_information_picker(dcc,tab_name):
     return dcc.Dropdown(options={'Duration':'duration','GemLengte':'distance'},value='Duration',id=('traffic_information_{}').format(tab_name),style={'width':'200px'})
 
-def __statistic_picker(dcc,tab_name):
-    return dcc.Dropdown(['mean','max','min','sum','count'],'mean',id=('statistic_{}').format(tab_name),style={'width':'100px'})
+def __statistic_picker(dcc,tab_name,suffix):
+    return dcc.Dropdown(['mean','max','min','sum','count'],'mean',id=('statistic_{}_{}').format(suffix,tab_name),style={'width':'100px'})
 
 def __weekday_picker(dcc,tab_name):
     return dcc.Checklist({'0':'mon','1':'tue','2':'wed','3':'thu','4':'fri','5':'sat','6':'sun','all':'all days'},['1'],id=('weekday_{}').format(tab_name),inline=True)
@@ -323,8 +335,8 @@ def __weekday_picker(dcc,tab_name):
 def __period_picker(dcc,tab_name):
     return dcc.Checklist({'0-6':'night_morning','6-10':'morning','10-15':'noon','15-19':'evening','19-24':'night-evening','all':'all day'},['all'],id=('period_{}').format(tab_name),inline=True)
 
-def __frequence_picker(dcc,tab_name):
-    return dcc.Dropdown(options={'ME':'month','D':'day','h':'hour'},value='D',id=('frequency_{}').format(tab_name),style={'width':'100px'})
+def __frequence_picker(dcc,tab_name,suffix):
+    return dcc.Dropdown(options={'ME':'month','D':'day','h':'hour'},value='D',id=('frequency_{}_{}').format(suffix,tab_name),style={'width':'100px'})
 
 def __rootcause_picker(dcc,datac,tab_name,api_base,AIweerfile_functions):
     if datac is None:

@@ -20,7 +20,7 @@ Created on Thu Feb  6 13:05:19 2025
 #run in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\AIweerfiledashboard.py
 import pandas as pd
 import plotly.express as px
-from dash import Dash, dcc, html, Input, Output, callback
+from dash import Dash, dcc, html, Input, Output, State, callback, callback_context
 import dash_bootstrap_components as dbc
 from Subfunctions import app_layout, callbacks, AIweerfile_functions
 import sys
@@ -49,7 +49,7 @@ else:
 app = Dash(__name__,external_stylesheets=[dbc.themes.CERULEAN])
 
 app = app_layout.main(app, dcc, dbc, html, datac,weather_data,pd, api_base,AIweerfile_functions)
-callbacks.main(callback, Output, Input, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions)
+callbacks.main(callback, Output, Input, State, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions,callback_context)
 
 if __name__ == "__main__":
     app.run_server(debug=True, use_reloader=False)
