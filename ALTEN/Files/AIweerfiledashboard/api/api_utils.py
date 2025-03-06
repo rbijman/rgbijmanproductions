@@ -69,10 +69,8 @@ def __date_time_query(query,filter_values,start_date,end_date,hours,weekdays,dat
         filter_values.append(tuple(hours_list))    
 
     if weekdays is not None:
-        print(weekdays)
         weekday_list = [int(weekday)+1 for weekday in weekdays.split(',')]
         weekday_list = [0 if x > 6 else x for x in weekday_list]
-        print(weekday_list)
         query += "AND DATE_PART('DOW'" + f',{date_column}) IN %s'
         filter_values.append(tuple(weekday_list))
     return query, filter_values

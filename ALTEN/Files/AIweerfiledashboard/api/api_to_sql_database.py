@@ -49,6 +49,10 @@ def get_data():
             del cursor
             result = [dict(zip(column_names,row)) for row in data]
             response = json.dumps({"columns":column_names,"data":result},default = api_utils.datetime_converter,indent=4)
+            
+            print('new data query:')
+            print(query)
+            
     return response
 
 
@@ -57,22 +61,24 @@ def get_unique():
     with my_pypg.connection.cursor() as cursor:
         table = request.args.get('table',None)
         column = request.args.get('columns',None)
-        date_column = request.args.get('datecolumn',None)
-        print(column)
-        
+        date_column = request.args.get('datecolumn',None)       
         if column in ["year","month"]:
             if column=="year":
                 subquery = "DATE_PART('Y'," + f'{date_column})'
             elif column=="month":
                 subquery = "DATE_PART('month'," + f'{date_column})'
         else:                
-            subquery = column    
-        print(subquery)
-        cursor.execute(f'SELECT DISTINCT {subquery} FROM {table}')    
+            subquery = column
+        
+        query = f'SELECT DISTINCT {subquery} FROM {table}'
+        cursor.execute(query)    
         unique_vals = cursor.fetchall()
                
         #Construct output
         all_unique_vals = [unique_val[0] for unique_val in unique_vals]
+        
+        print('new unique query:')
+        print(query)
         return jsonify(all_unique_vals)
     
 @app.get("/AIWeerFile_api/generic")
@@ -85,9 +91,12 @@ def get_generic():
             #DO SOME CHECKS FOR THE QUERY HERE TO NOT RUIN THE DATABASE
             cursor.execute(query)
             generic_vals = cursor.fetchall()
+            
+            print('new generic query:')
+            print(query)
         return jsonify(generic_vals)
             
 
 
 if __name__ == '__main__':
-    app.run(debug=True)#, use_reloader=False)
+    app.run(debug=True, use_reloader=False)
