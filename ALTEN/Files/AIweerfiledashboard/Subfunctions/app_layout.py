@@ -28,10 +28,12 @@ Created on Fri Feb  7 13:50:23 2025
                     
 
 def main(app,dcc,dbc,html,datac,weather_data,pd,api_base,AIweerfile_functions):
-    app.layout = html.Div(children=[            
+    app.layout = html.Div(children=[     
+            dcc.Store(id='dropdown_options_store'),
+        
             dcc.Tabs(value='further',children=[
-                update_data_tab(dcc,html,datac,dbc,pd,AIweerfile_functions),
-                AIWeerFile_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions),
+                update_data_tab(dcc,html,dbc,pd,AIweerfile_functions),
+                AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions),
                 # heatmap_tab(dcc,html,datac),
                 # traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions),
                 # weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions),
@@ -40,7 +42,7 @@ def main(app,dcc,dbc,html,datac,weather_data,pd,api_base,AIweerfile_functions):
     ])
     return app
 
-def update_data_tab(dcc,html,datac,dbc,pd,AIweerfile_functions):
+def update_data_tab(dcc,html,dbc,pd,AIweerfile_functions):
     tab_name = 'update_data'
     update_data_tab = dcc.Tab(id=tab_name,value=tab_name,label='Update data',children=[
     
@@ -167,7 +169,7 @@ def weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions
     ])
     return weather_tab
 
-def AIWeerFile_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions):
+def AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions):
     tab_name = 'further'
     new_tab = dcc.Tab(id=tab_name,value=tab_name,label='AIWeerFileDashboard',children=[
         html.H1(children="AIWeerFileDashboard"),
@@ -175,18 +177,22 @@ def AIWeerFile_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functi
         dbc.Stack([
             dbc.Stack([
                 html.Div(["Select a year:"]),
-                __year_picker(dcc,datac,tab_name,api_base,AIweerfile_functions),
+                dcc.Dropdown(options=[],id=('year_select_{}').format(tab_name),style={'width':'100px'}),
                 html.Div(["Select a month: "]),
-                __month_picker(dcc,datac,tab_name,api_base,AIweerfile_functions),             
+                dcc.Dropdown(options=[],id=('month_select_{}').format(tab_name),style={'width':'100px'}),       
                 html.Div(["Or select a specific date range: "]),
-                __date_picker(dcc,pd,datac,tab_name,api_base,AIweerfile_functions),
+                dcc.DatePickerRange(id=('date_range_{}').format(tab_name))
             ],direction="horizontal",gap=3),
             dbc.Stack([
-                html.Div(["Select road: "]),
-                __road_picker(dcc, datac, tab_name,'A1',api_base,AIweerfile_functions),  
+                               
+                html.Div(["Select road try: "]),
+                dcc.Dropdown(options=[],id=('road_select_{}').format(tab_name),style={'width':'100px'}), 
                
                 html.Div(["Select city: "]),
-                __city_picker(dcc,weather_data,tab_name,api_base,AIweerfile_functions),
+                dcc.Dropdown(options=[],placeholder='Select another city',id=('city_select_{}').format(tab_name),style={'width':'300px'})
+                
+                
+                
             ],direction="horizontal",gap=3),
             dbc.Stack([
                 html.Div(["Select traffic information: "]),
@@ -224,10 +230,13 @@ def AIWeerFile_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functi
         __period_picker(dcc,tab_name),
          
         html.Div(["Select rootcause: "]),
-        __rootcause_picker(dcc,datac,tab_name,api_base,AIweerfile_functions),
+        dcc.Checklist(options=[],id=('rootcause_{}').format(tab_name),inline=True),
 
         html.Div(["Number of included trafics"]),
         dcc.Textarea(id=('text_{}').format(tab_name)),
+        
+        html.Div(["Subtract the per weekday average: "]),
+        dcc.Checklist(options=['on'],value=[],id=('subtract_weekday_average_{}').format(tab_name)),
         
         dbc.Row(dbc.Spinner(color="primary", fullscreen=True), id=("initial_spinner_{}").format(tab_name)),
 
@@ -246,9 +255,8 @@ def AIWeerFile_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functi
         html.Div(["Total Pandas query is:"]),
         dcc.Textarea(id=('total_pandas_query_{}').format(tab_name), style={'width': '25%','height':150}),
         
-        dcc.Store(id=('current_traffic_data_{}').format(tab_name),data=[]),
-        dcc.Store(id=('current_weather_data_{}').format(tab_name),data=[])
-
+        dcc.Store(id=('current_data_{}').format(tab_name),data=None),
+        # dcc.Store(id=('current_weather_data_{}').format(tab_name),data=None),
         ])
     return new_tab
 
