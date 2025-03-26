@@ -23,14 +23,20 @@ class Piece:
         self.type_idx = piece_type_idx
         #instantiate other atributes
         self.allowed_movements = None
-        self.status = 'safe'
+        self.attack_status = 'safe'
+        self.defend_status = 'defended'
         self.ann = []
         self.loc = {'x':None,'y':None}
+        self.special_movement_category = None
         #init_member_functions
         self.__initiate_allowed_movements()
         
     def show_piece(self,ax,ismove):
-        annotation = ax.annotate(self.name, [self.loc['x'],self.loc['y']],ha='center',color=self.color)
+        if self.type == 'king' and self.attack_status=='attacked':
+            annotation_text = self.name + '*'
+        else:
+            annotation_text = self.name
+        annotation = ax.annotate(annotation_text, [self.loc['x'],self.loc['y']],ha='center',color=self.color)
         self.ann.append(annotation)
         plt.draw()
         if ismove:
@@ -47,33 +53,52 @@ class Piece:
     def change_status(self):
         return
     
+    def promote_pawn_to(self,new_type,loc_x,loc_y,ax):
+        self.hide_piece()
+        self.__init__(f'{self.name}-{new_type}', new_type, 1, self.color, self.player_id)
+        self.set_location(loc_x, loc_y)
+        self.show_piece(ax, ismove=True)
+        return
+        
     def __initiate_allowed_movements(self):
         match self.type:
             case 'pawn':
                 if self.player_id==1:
-                    self.allowed_movements = {'normal':[(0,1)],'attack':[(1,1),(-1,1)],'initial':[(0,1),(0,2)]} #Fix initial movement of pon! make sure that it only happens 
+                    self.allowed_movements = {'normal':[(0,1)],'attack':[(1,1),(-1,1)],'initial':[(0,1),(0,2)]}
                 else:
                     self.allowed_movements = {'normal':[(0,-1)],'attack':[(1,-1),(-1,-1)],'initial':[(0,-1),(0,-2)]}
+                self.allowed_movements['special'] = []
             case 'rook':
                 self.allowed_movements = {'normal':[(x,0) for x in range(-8,9) if x != 0] + [(0,x) for x in range(-8,9) if x != 0]}
                 self.allowed_movements['attack'] = self.allowed_movements['normal']
                 self.allowed_movements['initial'] = self.allowed_movements['normal']
+                self.allowed_movements['special'] = []
             case 'knight':
                 self.allowed_movements = {'normal':[(1,2),(1,-2),(2,1),(2,-1),(-1,2),(-1,-2),(-2,1),(-2,-1)]}
                 self.allowed_movements['attack'] = self.allowed_movements['normal']
                 self.allowed_movements['initial'] = self.allowed_movements['normal']
+                self.allowed_movements['special'] = []
+                
             case 'bishop':
                 self.allowed_movements = {'normal':[(x,x) for x in range(-8,9) if x != 0] + [(x,-x) for x in range(-8,9) if x != 0] }
                 self.allowed_movements['attack'] = self.allowed_movements['normal']
                 self.allowed_movements['initial'] = self.allowed_movements['normal']
+                self.allowed_movements['special'] = []
             case 'queen':
                 self.allowed_movements = {'normal':[(x,0) for x in range(-8,9) if x != 0] + [(0,x) for x in range(-8,9) if x != 0] + [(x,x) for x in range(-8,9) if x != 0] + [(x,-x) for x in range(-8,9) if x != 0]}
                 self.allowed_movements['attack'] = self.allowed_movements['normal']
                 self.allowed_movements['initial'] = self.allowed_movements['normal']
+                self.allowed_movements['special'] = []
             case 'king':
                 self.allowed_movements = {'normal':[(x,y) for x in range(-1,2) for y in range(-1,2) if not (x ==0 and y ==0)]}
                 self.allowed_movements['attack'] = self.allowed_movements['normal']
                 self.allowed_movements['initial'] = self.allowed_movements['normal']
+                self.allowed_movements['special'] = {'castling':[(2,0), (-2,0)]}
+        
+        special_movements = self.allowed_movements['special']
+        if isinstance(special_movements,dict):
+            self.special_movement_category = list(self.allowed_movements['special'].keys())[0]
+        
        
 
 class Board:
@@ -130,6 +155,7 @@ class Tile:
 
 class Game:    
     def __init__(self,colors):
+        self.players = [1,2]
         self.colors = colors
         self.board = None
         self.__pieces = self.pieces = dict(zip(self.colors, [[] for x in range(len(self.colors))]))
@@ -163,58 +189,64 @@ class Game:
                 piece.set_location(piece.initial_loc['x'],piece.initial_loc['y'])
                 self.board.place_piece_on_board(piece)
      
-    def show_move_options(self,pieces,tactic): #FIX THIS ONE
+    def get_move_options(self,pieces,show): 
         options = {}
         for piece in pieces:
             suboptions = []
-            for movement in piece.allowed_movements['normal'] + piece.allowed_movements['initial'] + piece.allowed_movements['attack']:
+            special_movements = piece.allowed_movements['special']
+            if isinstance(special_movements,dict):
+                special_movements = special_movements[piece.special_movement_category]
+            for movement in piece.allowed_movements['normal'] + piece.allowed_movements['initial'] + piece.allowed_movements['attack'] + special_movements:
                  x = piece.loc['x'] + movement[0]
                  y = piece.loc['y'] + movement[1]
                  try:
-                     # self.__validate_beta(x, y,tactic,piece.player_id)
-                     tactic = self.__validate_move(piece, x, y)
+                     tactic = self.__validate_move(piece, x, y,show=show)
                  except ValueError as e:
-                     print(f" Caught an error: {e}")
+                     if show:
+                         print(f" Caught an error: {e}")
                  else:
                      suboptions.append((x,y))
-                    
-                     # scatter = plt.scatter(x=x,y=y,s=100,marker='*',color=color)
-                     # plt.draw()
-                     # plt.pause(0.1)
+            suboptions = list(set(suboptions))
             options[piece.name] = suboptions
-            print(piece.name)
-            # if self.scatter != None:
-            #     self.scatter.remove()
-            #     self.scatter = None
-            match tactic:
-                case 'normal':
-                    color = piece.color
-                case 'attack': 
-                    color = 'yellow'
-            self.scatter = plt.scatter(x=[x[0] for x in suboptions],y=[x[1] for x in suboptions],s=100,marker='*',color=color)
-            plt.draw()
-            plt.pause(0.1)
-
+            if show:
+                match tactic:
+                    case 'normal':
+                        color = piece.color
+                    case 'attack': 
+                        color = 'yellow'
+                self.scatter = plt.scatter(x=[x[0] for x in suboptions],y=[x[1] for x in suboptions],s=100,marker='*',color=color)
+                plt.draw()
+                plt.pause(0.1)
         return options
                      
      
     def move_piece(self,piece,new_loc_x,new_loc_y):
         try:
-          tactic = self.__validate_move(piece,new_loc_x, new_loc_y)
+          tactic = self.__validate_move(piece,new_loc_x, new_loc_y,show=True)
         except ValueError as e:
            print(f'Error occured: {e}') 
-           self.show_move_options([self.get_all_pieces_on_board(piece.player_id)[piece.name]],'normal')
+           self.get_move_options([self.get_all_pieces_on_board(piece.player_id)[piece.name]],show=True)
            raise
         else:           
            if tactic == 'attack':
                self.__remove_attacked_piece_to_stack(self.board.tiles[new_loc_x,new_loc_y].occupied_with)
+           elif tactic == 'special':
+               if piece.special_movement_category=='castling':
+                   
+                    if new_loc_x>piece.loc['x']:
+                        x_direction = 1
+                        rook_loc_x = piece.loc['x']+3 
+                    else:
+                        x_direction = -1
+                        rook_loc_x = piece.loc['x']-4
+                    other_piece = self.board.tiles[rook_loc_x][new_loc_y].occupied_with
+                    self.__move_piece_to_new_location(other_piece,new_loc_x-x_direction,new_loc_y)
+                    self.board.tiles[piece.loc['x'],piece.loc['y']].occupied_with.allowed_movements['special'][piece.special_movement_category]=[] #Reset castling option
            
-           self.__move_piece_to_new_location(piece, new_loc_x, new_loc_y)     
+           self.__move_piece_to_new_location(piece, new_loc_x, new_loc_y)
                                    
-    def show_all(self):
-        
-        self.board.show_board(self.ax)
-        
+    def show_all(self):        
+        self.board.show_board(self.ax)        
         for color in self.colors:
             for piece in list(self.get_all_pieces_on_board(1).values()) + list(self.get_all_pieces_on_board(2).values()):
                 piece.show_piece(self.ax,False)  
@@ -239,13 +271,15 @@ class Game:
             case 'demo':
                 for move_idx in range(len(player_moves[1])):
                     for player_idx in range(len(player_moves)):
-                        plt.title(f'Player {player_idx+1} to move',color=self.colors[player_idx])
+                        plt.title(f'move {2*(move_idx+1)-1+player_idx}: Player {player_idx+1} to move',color=self.colors[player_idx])
                         plt.pause(0.001)
+                        game1.check_and_update_piece_status(player_idx+1)
                         if move_idx > len(player_moves[player_idx+1])-1:
                             print(f'We arived at move {move_idx} out of {len(player_moves[player_idx+1])-1} for player {player_idx+1}')
                         else:
                             move = player_moves[player_idx+1][move_idx]
                             self.__move_selecter(move,player_idx)
+                    
                 os.system("pause")
             case 'manual':
                 move_idx = 0
@@ -274,7 +308,12 @@ class Game:
                     piece_name = self.board.tiles[x_loc_old][y_loc_old].occupied_with.name
                 x_loc_new = move[1][0]
                 y_loc_new = move[1][1]
-                self.move_piece(self.get_all_pieces_on_board(player_idx+1)[piece_name],x_loc_new,y_loc_new)
+                piece = self.get_all_pieces_on_board(player_idx+1)[piece_name]
+                self.move_piece(piece,x_loc_new,y_loc_new)
+                if len(move)==3: # Promote piece!
+                    promoted_piece = move[2]
+                    print(f'{piece.name} gets promoted to {promoted_piece}')
+                    self.board.tiles[x_loc_new][y_loc_new].occupied_with.promote_pawn_to(promoted_piece,x_loc_new,y_loc_new,self.ax)
                 
                 time.sleep(pause_time)
             except ValueError:
@@ -310,20 +349,18 @@ class Game:
         self.__pieces[self.colors[player_id-1]] = new_pieces
 
 
-    def __validate_move(self,piece,new_loc_x,new_loc_y): #player_id is part of piece
-        
+    def __validate_move(self,piece,new_loc_x,new_loc_y,show):
         if new_loc_x not in range(0,self.board.dimension_x) or new_loc_y not in range(0,self.board.dimension_y):
             raise ValueError(f'x={new_loc_x},y={new_loc_y}: This location exceeds the board dimensions')
         
         delta_x = new_loc_x - piece.loc['x']
         delta_y = new_loc_y - piece.loc['y']
         
-        if piece.type in ['rook','bishop','queen']:
+        if piece.type in ['rook','bishop','queen','king']:
             path = self.__get_path((piece.loc['x'],piece.loc['y']), (new_loc_x,new_loc_y),piece.type)
             for tile in path:
                 if self.board.tiles[tile[0]][tile[1]].get_occupation_of_tile() != 'empty':
-                    raise ValueError(f'Move {piece.name} to x={new_loc_x},y={new_loc_y} is not valid because there is an occupied tile on its path')
-                    
+                    raise ValueError(f'Move {piece.name} to x={new_loc_x},y={new_loc_y} is not valid because there is an occupied tile on its path')                    
             
             
         if (delta_x,delta_y) in piece.allowed_movements['normal']:
@@ -333,7 +370,8 @@ class Game:
                 raise ValueError(f'Move {piece.name} to x={new_loc_x},y={new_loc_y} is not valid because the field is already ocipied by one of your pieces')
             elif self.board.tiles[new_loc_x,new_loc_y].occupied_with.player_id != piece.player_id:
                 if (delta_x,delta_y) in piece.allowed_movements['attack']:
-                    print('you can attack your opponent')
+                    if show:
+                        print('you can attack your opponent')
                     return 'attack'
                 else:
                     raise ValueError(f'Move {piece.name} to x={new_loc_x},y={new_loc_y} is not valid because the field is already ocipied by one of your opponents pieces')
@@ -349,16 +387,49 @@ class Game:
         elif (delta_x,delta_y) in piece.allowed_movements['attack']:
             if self.board.tiles[new_loc_x,new_loc_y].get_occupation_of_tile() != 'empty':
                 if self.board.tiles[new_loc_x,new_loc_y].occupied_with.player_id != piece.player_id:
-                    print('you can attack your opponent')
+                    if show:
+                        print('you can attack your opponent')
                     return 'attack'
                 elif self.board.tiles[new_loc_x,new_loc_y].occupied_with.player_id == piece.player_id:
                     raise ValueError(f"You cannot attack (x={new_loc_x},y={new_loc_y}) with {piece.name} because it has a piece ({self.board.tiles[new_loc_x,new_loc_y].occupied_with.name} from yourself")
             else:
                 raise ValueError(f"You cannot attack (x={new_loc_x},y={new_loc_y}) with {piece.name} because it is empty")
+        elif piece.special_movement_category != None and (delta_x,delta_y) in piece.allowed_movements['special'][piece.special_movement_category]:
+            if show:
+                print(f'You want to do {piece.special_movement_category}?')
+            match piece.special_movement_category:
+                case 'castling':
+                    if new_loc_x>piece.loc['x']:
+                        rook_loc_x = piece.loc['x']+3 
+                    else:
+                        rook_loc_x = piece.loc['x']-4
+                    other_piece = self.board.tiles[rook_loc_x][new_loc_y].occupied_with
+                    if piece.loc == piece.initial_loc and other_piece and other_piece.type=='rook' and other_piece.loc == other_piece.initial_loc:
+                        if show:
+                            print('Do it')
+                    else:
+                        ValueError('castling is not possible')
+            
+            return 'special'
         else:
             raise ValueError(f'Move {piece.name} to x={new_loc_x},y={new_loc_y} is not valid because it is outside the allowed range of {piece.name}')
+        
             
-
+    def check_and_update_piece_status(self,player_id):
+        pieces_on_board_opponent = self.get_all_pieces_on_board(self.players[not player_id-1])
+        options = self.get_move_options(list(pieces_on_board_opponent.values()),show=False)
+        all_moves = []
+        [all_moves.extend(x) for x in list(options.values())]
+        all_moves = list(set(all_moves))
+        pieces_on_board_player = self.get_all_pieces_on_board(self.players[player_id-1])
+        for piece in list(pieces_on_board_player.values()):
+            if (piece.loc['x'],piece.loc['y']) in all_moves:
+                piece.attack_status = 'attacked'
+                if piece.type == 'king' and piece.attack_status == 'attacked':
+                    print('Your king is checked')
+            else:
+                piece.attack_status = 'safe'
+        return options
             
     def __move_piece_to_new_location(self,piece,new_loc_x,new_loc_y):
         self.board.remove_piece_from_board(piece)
@@ -379,7 +450,7 @@ class Game:
         end_x, end_y = end
         
         # Horizontal or vertical movement (rook-like)
-        if piece_type in ['rook','queen']:
+        if piece_type in ['rook','queen','king']:
             if start_x == end_x:
                 if start_y < end_y:
                     path = [(start_x, y) for y in range(start_y + 1, end_y)]
@@ -407,34 +478,37 @@ class Game:
 class hystorical_data():
         
     def __init__(self):
+        self.board = chess.Board()
         return
     
     def get_data_from_kaggle(self):
         chess_games =  pd.read_csv(r"C:\Users\rbijman\OneDrive - ALTEN Group\Documents\Projects\Python\Chess\games.csv")
         return chess_games        
     
-    def __algebraic_to_coordinates(self,move, board):
+    def __algebraic_to_coordinates(self,move):
+        mapping = {'Q':'queen'}
         try:
-            chess_move = board.push_san(move)  # This will parse the move in algebraic notation
+            chess_move = self.board.push_san(move)  # This will parse the move in algebraic notation
             start_square = chess_move.from_square
             end_square = chess_move.to_square
-            return (chess.square_file(start_square), chess.square_rank(start_square)), (chess.square_file(end_square), chess.square_rank(end_square))
+            if '=' in move:
+                index = move.find('=')
+                promoted_piece = mapping[move[index+1]]
+                return (chess.square_file(start_square), chess.square_rank(start_square)), (chess.square_file(end_square), chess.square_rank(end_square)), promoted_piece
+            else:
+                return (chess.square_file(start_square), chess.square_rank(start_square)), (chess.square_file(end_square), chess.square_rank(end_square))
         except ValueError as e:
             print(f"Invalid move {move}: {e}")
             return None
 
     def convert_to_coordinates(self,game_moves,print_coordinates):
         move_coordinates = []
-        # Initialize the chess board
-        board = chess.Board()
-        
-        # Example game moves in algebraic notation
-
         
         for move in game_moves:
-            coordinates = self.__algebraic_to_coordinates(move, board)
+            coordinates = self.__algebraic_to_coordinates(move)
             if coordinates and print_coordinates:
-                start, end = coordinates
+                start = coordinates[0]
+                end = coordinates[1]
                 print(f"Move: {move} | Start: {start} → End: {end}")
             move_coordinates.append(coordinates)
         return move_coordinates
@@ -449,7 +523,7 @@ class hystorical_data():
 
 hyst_data = hystorical_data()
 chess_games = hyst_data.get_data_from_kaggle()
-moves = chess_games.iloc[2].moves
+moves = chess_games.iloc[4].moves
 moves = moves.split()
 
 coordinates = hyst_data.convert_to_coordinates(moves,print_coordinates=False)
@@ -458,11 +532,11 @@ player_moves2 = hyst_data.split_coordinates_in_player_moves(coordinates)
 #%%
 #Game scenario
 player_moves = {}
-player_moves[1] = [('P3',(2,2)),('P3',(2,4)),('N1',(2,2)),('P3',(3,4))]
-player_moves[2] = [('P4',(3,5)),('P4',(3,4)),('N1',(2,5)),('P1',(1,1))]
+player_moves[1] = [('P3',(2,2)),('P3',(2,3)),('N1',(2,2)),('P3',(3,4))]
+player_moves[2] = [('P4',(3,5)),('P4',(3,4)),('N1',(2,5)),('P1',(2,5))]
      
 plt.close()
-pause_time = 0.1
+pause_time = 0.01
 game1 = Game(['green','red'])
 game1.start_game()
 game1.show_all()
@@ -472,8 +546,9 @@ game1.play_game_scenario(player_moves2, pause_time, game_mode)
 
 print('Pieces in stack- player1:', game1.get_all_pieces_in_stack(1), 'player2:' ,game1.get_all_pieces_in_stack(2))
 
-
-# os.system("pause")
+options = game1.check_and_update_piece_status(2)
+print(options)
+os.system("pause")
 
 
 
