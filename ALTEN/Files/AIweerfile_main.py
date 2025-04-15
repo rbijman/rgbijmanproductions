@@ -17,6 +17,68 @@ end_date = '2024-12-31'
 
 datac, lat_lon_df, weather_per_city = AIweerfile_functions.collect_and_clean_AIweerfiledata(start_date,end_date,ampm_border,shortlong_border)
 
+#%% Store data in SQL database
+working_dir = r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files"
+data_to_update = datac
+sql_table_to_update = 'trafics'
+AIweerfile_functions.update_sql_database(working_dir,AIweerfile_functions,data_to_update,sql_table_to_update)
+data_to_update = weather_per_city
+sql_table_to_update = 'weather'
+AIweerfile_functions.update_sql_database(working_dir,AIweerfile_functions,data_to_update,sql_table_to_update)
+
+#%% update pickles
+datac_file_path = working_dir + r"\ProcessedData\datac"
+AIweerfile_functions.update_pickle_with_sql_database_data(AIweerfile_functions,working_dir,datac_file_path,'trafics')
+datac_file_path = working_dir + r"\ProcessedData\weather_data"
+AIweerfile_functions.update_pickle_with_sql_database_data(AIweerfile_functions,working_dir,datac_file_path,'weather')
+
+
+
+
+
+#%% Regression ADD A TAB TO THE DASHBOARD WITH THIS KIND OF ANALYSES
+aggregation_methods = ['mean','max','sum','count']
+columns_of_interest = ['Duration','distance','temperature_2m','rain','snowfall','sunshine_duration']
+
+input_table = datac.groupby(datac.DateTimeStart.dt.date)[columns_of_interest].agg(aggregation_methods)
+
+weather_type = 'rain'
+weather_statistic = 'sum'
+traffic_type = 'distance'
+traffic_statistic = 'sum'
+polynomal_degree = 4
+
+from sklearn.model_selection import train_test_split
+import numpy as np
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn import svm
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+
+X_train, X_test, Y_train, Y_test = train_test_split(input_table[weather_type],input_table[traffic_type][traffic_statistic],test_size=0.4,random_state=0)
+
+
+polyreg = PolynomialFeatures(degree=polynomal_degree)
+X_train_poly = polyreg.fit_transform(X_train[weather_statistic].values.reshape(-1,1))
+
+pipe_svm = make_pipeline(StandardScaler(), #preprocess
+                         #PCA(n_components=2), #PCA
+                         #svm.SVR(kernel='linear',C=1) #Regressor initiating
+                         LinearRegression()
+                         )
+
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(estimator=pipe_svm,
+                         X=X_train_poly, 
+                         y=Y_train, 
+                         cv=10,
+                         n_jobs=1,scoring='neg_mean_squared_error')
+print('CV accuracy scores: %s' % scores)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores),np.std(scores)**2))
+
+
 #%% Update Postgresql database
 working_dir = r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files"
 data_to_update = datac
