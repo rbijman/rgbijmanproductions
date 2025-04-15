@@ -11,13 +11,13 @@ from datetime import datetime
 def set_up_db_connection(working_dir):
     def import_python_postgress_class():
         import sys
-        sys.path.insert(0,r'C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\SQL')
+        sys.path.insert(0,rf'{working_dir}\SQL')
         from python_postgress_class import python_postgres as pypg
         return pypg
 
     pypg = import_python_postgress_class()
 
-    my_pypg = pypg(r'C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Files\database_config.ini','postgresql')
+    my_pypg = pypg(rf'{working_dir}\database_config.ini','postgresql')
     return my_pypg
 
 
