@@ -28,16 +28,13 @@ Created on Fri Feb  7 13:50:23 2025
                     
 
 def main(app,dcc,dbc,html,datac,weather_data,pd,api_base,AIweerfile_functions):
-    app.layout = html.Div(children=[     
-            dcc.Store(id='dropdown_options_store'),
-        
-            dcc.Tabs(value='further',children=[
-                update_data_tab(dcc,html,dbc,pd,AIweerfile_functions),
+    app.layout = html.Div(children=[             
+            dcc.Tabs(value='further',children=[  #further
                 AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions),
-                # heatmap_tab(dcc,html,datac),
-                # traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions),
-                # weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions),
-                
+                update_data_tab(dcc,html,dbc,pd,AIweerfile_functions),
+                traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions),
+                weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions),
+                # heatmap_tab(dcc,html,datac),                
             ])  
     ])
     return app
@@ -76,8 +73,7 @@ def update_data_tab(dcc,html,dbc,pd,AIweerfile_functions):
                 
                     html.Div(dcc.Textarea(id=('loading_status_{}').format(tab_name)))
             ],gap=2)
-    ])
-        
+    ])        
 
     return update_data_tab
 
@@ -86,27 +82,30 @@ def traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions):
     trafic_tab = dcc.Tab(id=tab_name,value=tab_name,label='Traffic',children=[
     
     html.H1(children="Traffic Analytics"),
-    dbc.Row([
-        dbc.Col([
+  
+    
+    dbc.Stack([
+        dbc.Stack([
             html.Div(["Select a year:"]),
-            __year_picker(dcc,datac,tab_name,api_base,AIweerfile_functions),
-            
+            dcc.Dropdown(options=[],id=('year_select_{}').format(tab_name),style={'width':'100px'}),
             html.Div(["Select a month: "]),
-            __month_picker(dcc,datac,tab_name,api_base,AIweerfile_functions),    
-        ],width=2),
-        dbc.Col([
+            dcc.Dropdown(options=[],id=('month_select_{}').format(tab_name),style={'width':'100px'}),       
             html.Div(["Or select a specific date range: "]),
-            __date_picker(dcc,pd,datac,tab_name,api_base,AIweerfile_functions),    
-        ],width=2),
-        dbc.Col([
-            html.Div(["Select road: "]),
-            __road_picker(dcc, datac, tab_name,'N99',api_base,AIweerfile_functions),
-        ],width=2),
-        dbc.Col([
+            dcc.DatePickerRange(id=('date_range_{}').format(tab_name))
+        ],direction="horizontal",gap=3),
+        dbc.Stack([
+                           
+            html.Div(["Select road try: "]),
+            dcc.Dropdown(options=[],id=('road_select_{}').format(tab_name),style={'width':'100px'}), 
+           
             html.Div(["Split by: "]),
             __split_by_picker(dcc,tab_name),
-        ],width=2),
-    ]), 
+            
+            
+        ],direction="horizontal",gap=3),
+    ],gap=3),
+    
+    html.Div(html.Button('Load data', id='load_data_{}'.format(tab_name), n_clicks=0)),
 
     html.Div(["Graph1: "]),
     dcc.Loading(id='loading_traffic1',children=[
@@ -121,7 +120,8 @@ def traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions):
     html.Div(["exclude those traffics: "]),
     dcc.Checklist(['grens','>25km'],[],id=('excluded_traffics_{}').format(tab_name),inline=True),        
 
-    
+    dcc.Store(id='dropdown_options_store_{}'.format(tab_name)),
+
     ])
     return trafic_tab
 
@@ -130,47 +130,50 @@ def weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions
     weather_tab = dcc.Tab(id=tab_name,value=tab_name,label='Weather+Traffic',children=[
         html.H1(children="Weather + Traffic Analytics"),
         
-        dbc.Row([
-            dbc.Col([
+        
+        dbc.Stack([
+            dbc.Stack([
                 html.Div(["Select a year:"]),
-                __year_picker(dcc,datac,tab_name,api_base,AIweerfile_functions),
-                
+                dcc.Dropdown(options=[],id=('year_select_{}').format(tab_name),style={'width':'100px'}),
                 html.Div(["Select a month: "]),
-                __month_picker(dcc,datac,tab_name,api_base,AIweerfile_functions),                   
-            ],width=2),
-            dbc.Col([
+                dcc.Dropdown(options=[],id=('month_select_{}').format(tab_name),style={'width':'100px'}),       
                 html.Div(["Or select a specific date range: "]),
-                __date_picker(dcc,pd,datac,tab_name,api_base,AIweerfile_functions),   
-            ],width=2),
-            dbc.Col([
-                html.Div(["Select road: "]),
-                __road_picker(dcc, datac, tab_name,'A1',api_base,AIweerfile_functions),           
-            ],width=2),
-            dbc.Col([
+                dcc.DatePickerRange(id=('date_range_{}').format(tab_name))
+            ],direction="horizontal",gap=3),
+            dbc.Stack([
+                               
+                html.Div(["Select road try: "]),
+                dcc.Dropdown(options=[],id=('road_select_{}').format(tab_name),style={'width':'100px'}), 
+                
                 html.Div(["Select city: "]),
-                __city_picker(dcc,weather_data,tab_name,api_base,AIweerfile_functions),        
-            ],width=2),
-        ]),
-        dbc.Row([
-            dbc.Col([
-                html.Div(["Split by: "]),    
+                dcc.Dropdown(options=[],placeholder='Select another city',id=('city_select_{}').format(tab_name),style={'width':'300px'}),
+               
+                html.Div(["Split by: "]),
                 __split_by_picker(dcc,tab_name),
-            ],width=2),
-            dbc.Col([
+                
+            ],direction="horizontal",gap=3),
+            dbc.Stack([
+                
                 html.Div(["Select weather type: "]),
                 __weather_type_picker(dcc, tab_name),
-            ],width=2),
-        ]),
+                
+            ],direction="horizontal",gap=3),
+        ],gap=3),     
         
+        html.Div(html.Button('Load data', id='load_data_{}'.format(tab_name), n_clicks=0)),
+
         dcc.Loading(id='loading_weather',children=[
-          dcc.Graph(id=("graph_{}").format(tab_name)),   
-        ]),
+        dcc.Graph(id=("graph_{}").format(tab_name))]), 
         
+        dcc.Store(id='dropdown_options_store_{}'.format(tab_name)),
+
+      
     ])
     return weather_tab
 
 def AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions):
     tab_name = 'further'
+    
     new_tab = dcc.Tab(id=tab_name,value=tab_name,label='AIWeerFileDashboard',children=[
         html.H1(children="AIWeerFileDashboard"),
         
@@ -255,8 +258,9 @@ def AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions):
         html.Div(["Total Pandas query is:"]),
         dcc.Textarea(id=('total_pandas_query_{}').format(tab_name), style={'width': '25%','height':150}),
         
-        dcc.Store(id=('current_data_{}').format(tab_name),data=None),
-        # dcc.Store(id=('current_weather_data_{}').format(tab_name),data=None),
+        dcc.Store(id='dropdown_options_store_{}'.format(tab_name)),
+
+        
         ])
     return new_tab
 
@@ -280,54 +284,9 @@ def heatmap_tab(dcc,html,datac):
 
 
 #Helper functions
-def __year_picker(dcc,datac,tab_name,api_base,AIweerfile_functions):
-    if datac is None:
-        unique_years = AIweerfile_functions.call_AIWeerFileAPI(api_base,'unique','?table=trafics&columns=year&datecolumn="DateTimeStart"')
-    else: 
-        unique_years = list(datac.index.year.unique())
-    return dcc.Dropdown(['all']+sorted(unique_years), 2024,id=('year_select_{}').format(tab_name),style={'width':'100px'})
-
-def __month_picker(dcc,datac,tab_name,api_base,AIweerfile_functions):
-    if datac is None:
-        unique_months = AIweerfile_functions.call_AIWeerFileAPI(api_base,'unique','?table=trafics&columns=month&datecolumn="DateTimeStart"')
-    else:
-        unique_months = list(datac.index.month.unique())
-    return dcc.Dropdown(['all']+sorted(unique_months), 1,id=('month_select_{}').format(tab_name),style={'width':'100px'})
-
-def __date_picker(dcc,pd,datac,tab_name,api_base,AIweerfile_functions):
-    if datac is None:
-        min_date = pd.to_datetime(AIweerfile_functions.call_AIWeerFileAPI(api_base,'generic',"?query=SELECT MIN(" + '"DateTimeStart") FROM trafics')[0]).round('D')[0]
-        max_date = pd.to_datetime(AIweerfile_functions.call_AIWeerFileAPI(api_base,'generic',"?query=SELECT MAX(" + '"DateTimeStart") FROM trafics')[0]).round('D')[0]
-    else:
-        min_date = datac.index.round('D').min()
-        max_date = datac.index.round('D').max()
-    return dcc.DatePickerRange(
-    id=('date_range_{}').format(tab_name),
-    min_date_allowed=min_date,
-    max_date_allowed=max_date,
-    initial_visible_month=min_date,
-    start_date=min_date,
-    end_date=max_date,style={'Height':10}
-    )
-    
-def __road_picker(dcc,datac,tab_name,default,api_base,AIweerfile_functions):
-    if datac is None:
-        unique_roads = AIweerfile_functions.call_AIWeerFileAPI(api_base,'unique','?table=trafics&columns="Road"')
-    else:
-        unique_roads = list(datac.Road.sort_values().unique())
-    
-    return dcc.Dropdown(['All']+unique_roads,default,id=('road_select_{}').format(tab_name),style={'width':'100px'})
-    
 def __split_by_picker(dcc,tab_name):
     return dcc.RadioItems(['no_split','direction','ampm','shortlong','weekday'], 'no_split',id=('split_by_{}').format(tab_name),inline=True)
-    
-def __city_picker(dcc,weather_data,tab_name,api_base,AIweerfile_functions):
-    if weather_data is None:
-        unique_cities = AIweerfile_functions.call_AIWeerFileAPI(api_base,'unique','?table=weather&columns=city')
-    else:
-        unique_cities = weather_data.city.sort_values().unique()
-    return dcc.Dropdown(unique_cities,placeholder='Select another city',id=('city_select_{}').format(tab_name),style={'width':'300px'})
-    
+
 def __weather_type_picker(dcc,tab_name):
     return dcc.Dropdown(options={'temperature_2m':'temperature','rain':'rain','snowfall':'snow','precipitation':'precipitation','wind_speed_10m':'wind','sunshine_duration':'sunshine'},value= 'temperature_2m',id=('weather_type_{}').format(tab_name),style={'width':'200px'})
 
@@ -346,9 +305,3 @@ def __period_picker(dcc,tab_name):
 def __frequence_picker(dcc,tab_name,suffix):
     return dcc.Dropdown(options={'ME':'month','D':'day','h':'hour'},value='D',id=('frequency_{}_{}').format(suffix,tab_name),style={'width':'100px'})
 
-def __rootcause_picker(dcc,datac,tab_name,api_base,AIweerfile_functions):
-    if datac is None:
-        unique_rootcauses = AIweerfile_functions.call_AIWeerFileAPI(api_base,'unique','?table=trafics&columns="Oorzaak_4"')
-    else:
-        unique_rootcauses = datac.Oorzaak_4.unique().tolist()
-    return dcc.Checklist(unique_rootcauses,unique_rootcauses,id=('rootcause_{}').format(tab_name),inline=True)
