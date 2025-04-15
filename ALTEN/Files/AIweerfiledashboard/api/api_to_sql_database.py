@@ -13,12 +13,13 @@ working_dir = r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\File
 
 app = Flask(__name__)
 
-my_pypg = api_utils.set_up_db_connection(working_dir)
+
 
 allowed_tables = ['trafics','weather']
 
 @app.get("/AIWeerFile_api/main")
 def get_data():
+    my_pypg = api_utils.set_up_db_connection(working_dir)
     with my_pypg.connection:
         with my_pypg.connection.cursor() as cursor:            
             #Deal with table_names
@@ -46,18 +47,20 @@ def get_data():
             #Construct the output
             column_names = [desc[0] for desc in cursor.description]
             data = list(cursor)
+            cursor.close()
             del cursor
             result = [dict(zip(column_names,row)) for row in data]
             response = json.dumps({"columns":column_names,"data":result},default = api_utils.datetime_converter,indent=4)
             
             print('new data query:')
             print(query)
-            
-    return response
+        # my_pypg.connection.close() 
+        return response
 
 
 @app.get("/AIWeerFile_api/unique")
 def get_unique():
+    my_pypg = api_utils.set_up_db_connection(working_dir)
     with my_pypg.connection.cursor() as cursor:
         table = request.args.get('table',None)
         column = request.args.get('columns',None)
@@ -83,6 +86,7 @@ def get_unique():
     
 @app.get("/AIWeerFile_api/generic")
 def get_generic():
+    my_pypg = api_utils.set_up_db_connection(working_dir)
     with my_pypg.connection.cursor() as cursor:
         
         query = request.args.get('query',None)
@@ -99,4 +103,4 @@ def get_generic():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=False, use_reloader=False)
