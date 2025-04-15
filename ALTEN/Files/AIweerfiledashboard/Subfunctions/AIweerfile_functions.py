@@ -117,12 +117,6 @@ def __get_lat_lon_per_city(datac):
     lat_lon_df['lon'] = lat_lon_df.lon.astype('float')
     return lat_lon_df
 
-def __get_weather_per_city(lat_lon_df,weather_type,start_date,end_date):
-    om = __cache_temp_data()
-    weather_per_city_temp = __get_weather_from_api(om,lat_lon_df.lat.astype('str').to_list(), lat_lon_df.lon.astype('str').to_list(), start_date, end_date, lat_lon_df.city,weather_type)
-    weather_per_city = weather_per_city_temp.reset_index().merge(lat_lon_df,left_on='city',right_on='city')
-    return weather_per_city
-
 def __get_lat_lon(your_loc):
     import requests
 
@@ -131,7 +125,15 @@ def __get_lat_lon(your_loc):
 
     lat = str(list(filter(lambda city: city['country_code']=='NL',location['results']))[0]['latitude'])
     lon = str(list(filter(lambda city: city['country_code']=='NL',location['results']))[0]['longitude'])
-    return(lat,lon)    
+    return(lat,lon) 
+
+def __get_weather_per_city(lat_lon_df,weather_type,start_date,end_date):
+    om = __cache_temp_data()
+    weather_per_city_temp = __get_weather_from_api(om,lat_lon_df.lat.astype('str').to_list(), lat_lon_df.lon.astype('str').to_list(), start_date, end_date, lat_lon_df.city,weather_type)
+    weather_per_city = weather_per_city_temp.reset_index().merge(lat_lon_df,left_on='city',right_on='city')
+    return weather_per_city
+
+   
 
 def __get_weather_from_api(om,lat,long,start_date,end_date,cities,weather_types):
     city_df = pd.DataFrame()
