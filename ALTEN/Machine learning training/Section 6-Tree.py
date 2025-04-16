@@ -144,3 +144,54 @@ plt.show()
 # Discision trees tend to overfit
 
 #%% Project HR
+import pandas as pd
+df = pd.read_csv(r"C:\Users\rbijman\Documents\GitHub\rgbijmanproductions\ALTEN\Machine learning training\data\WA_Fn-UseC_-HR-Employee-Attrition.csv")
+df.head()
+#%% Preprocessing
+import seaborn as sns
+df.shape
+df.info()
+df.iloc[0]
+
+df.isnull().any()
+df.describe()
+
+num_col = list(df.describe().columns) #numerical columns
+col_categorical = list(set(df.columns).difference(num_col)) #categorical columns
+remove_list = ['EmployeeCount','EmployeeNumber','StandardHours'] #Useless columns
+col_numerical = [e for e in num_col if e not in remove_list]
+
+sns.heatmap(df[col_numerical].corr(),annot=True,fmt=".2f")
+plt.show()
+
+df.Attrition.unique()
+df['Attrition_num'] = df['Attrition'].map({'Yes':0,'No':1})
+
+col_categorical.remove('Attrition')
+col_categorical
+
+df_cat = pd.get_dummies(df[col_categorical]) #OneHotEncoding
+df_cat.head()
+
+X=pd.concat([df[col_numerical],df_cat],axis=1)
+X.head()
+Y = df['Attrition_num']
+
+Y.value_counts()
+
+#%% Make the tree
+from sklearn.model_selection import train_test_split
+X_train, X_test, Y_train, Y_test = train_test_split(X,Y,test_size = 0.2)
+
+from sklearn.tree import DecisionTreeClassifier
+clf = DecisionTreeClassifier(random_state=42)
+clf.fit(X_train,Y_train)
+
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+accuracy_score(Y_train, clf.predict(X_train))
+print(classification_report(Y_train,clf.predict(X_train)))
+confusion_matrix(Y_train, clf.predict(X_train))
+
+accuracy_score(Y_test, clf.predict(X_test))
+print(classification_report(Y_test,clf.predict(X_test)))
+confusion_matrix(Y_test, clf.predict(X_test))
