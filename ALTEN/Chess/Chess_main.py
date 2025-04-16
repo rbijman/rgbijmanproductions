@@ -310,11 +310,14 @@ class Game:
                 y_loc_new = move[1][1]
                 piece = self.get_all_pieces_on_board(player_idx+1)[piece_name]
                 self.move_piece(piece,x_loc_new,y_loc_new)
-                if len(move)==3: # Promote piece!
-                    promoted_piece = move[2]
-                    print(f'{piece.name} gets promoted to {promoted_piece}')
-                    self.board.tiles[x_loc_new][y_loc_new].occupied_with.promote_pawn_to(promoted_piece,x_loc_new,y_loc_new,self.ax)
-                
+                if len(move)==3: 
+                    if move[2] == 'ep':
+                        print('en passant attack: TO BE IMPLEMENTED')
+                    else:# Promote piece!
+                        promoted_piece = move[2]
+                        print(f'{piece.name} gets promoted to {promoted_piece}')
+                        self.board.tiles[x_loc_new][y_loc_new].occupied_with.promote_pawn_to(promoted_piece,x_loc_new,y_loc_new,self.ax)
+                    
                 time.sleep(pause_time)
             except ValueError:
                 while True:
@@ -519,6 +522,17 @@ class hystorical_data():
             player_idx = 1 if move_idx%2==0 else 2
             player_moves[player_idx].append(move)
         return player_moves
+
+class AI:
+    
+    def __init__(self):
+        return
+    
+    def map_game_state(self,game_state):
+        game0 = Game(['red','green'])
+        game0.start_game()
+        mapping_values = range(1,33)
+        mapping_keys = list(game0.get_all_pieces_in_stack(1).keys()) + list(game0.get_all_pieces_in_stack(2).keys())
 
 
 hyst_data = hystorical_data()
