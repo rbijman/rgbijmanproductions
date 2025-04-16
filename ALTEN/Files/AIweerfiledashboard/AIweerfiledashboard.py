@@ -8,16 +8,27 @@ Created on Thu Feb  6 13:05:19 2025
 
 # Folderstructure needed:
     
-#     \working_dir\
-#         - AIweerfiledashboard
-#         - ProcessedData
-#         - RawData
-#         - SQL
+# ..\AIWeerfiledashboard\
+# 	AIweerfiledashboard.py
+#   	Subfunctions\
+#       __initi__.py
+# 		app_layout.py
+# 		callbacks.py
+# 		AIweerfile_functions.py
+# ..\API\
+# 		api_to_sql_database.py
+# 		api_utils.py
+# ..\SQL\
+# 	python_posgress_class.py
+# ..\ProcessedData\
+# 	datac
+# 	weather_data
+# ..\database_config.ini
 
 
 #%%
 
-#start API in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\api\
+#start API in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\api\api_to_sql_database.py
 #run in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\AIweerfiledashboard.py
 import pandas as pd
 import plotly.express as px

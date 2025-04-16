@@ -68,7 +68,7 @@ def collect_and_clean_AIweerfiledata(start_date,end_date,ampm_border,shortlong_b
 def update_sql_database(working_dir,AIweerfile_functions,data_to_update,sql_table_name):
     from sqlalchemy import create_engine
     pysql = __import_python_sql_class(working_dir)
-    my_pypg = pysql(working_dir + r"\database_config.ini",'postgresql')
+    my_pypg = pysql(working_dir + r"\SQL\database_config.ini",'postgresql')
     engine = create_engine(f"postgresql+psycopg2://{my_pypg.db_info['user']}:{my_pypg.db_info['password']}@{my_pypg.db_info['host']}:{my_pypg.db_info['port']}/{my_pypg.db_info['dbname']}")
     data_to_update.to_sql(sql_table_name, engine, if_exists='replace')
     print("SQL database updated")
@@ -78,7 +78,7 @@ def update_pickle_with_sql_database_data(AIweerfile_functions,working_dir,pickle
     import time
     
     pysql = __import_python_sql_class(working_dir)
-    my_pypg = pysql(working_dir + r"\database_config.ini",'postgresql')
+    my_pypg = pysql(working_dir + r"\SQL\database_config.ini",'postgresql')
     
     data = my_pypg.generic_get_query(f"SELECT * FROM {sql_table_name}")
     data.to_pickle(pickle_file_path)

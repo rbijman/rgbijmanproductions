@@ -17,7 +17,7 @@ def set_up_db_connection(working_dir):
 
     pypg = import_python_postgress_class()
 
-    my_pypg = pypg(rf'{working_dir}\database_config.ini','postgresql')
+    my_pypg = pypg(rf'{working_dir}\SQL\database_config.ini','postgresql')
     return my_pypg
 
 
