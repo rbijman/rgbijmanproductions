@@ -25,16 +25,15 @@ Created on Thu Feb  6 13:05:19 2025
 # 	weather_data
 # ..\database_config.ini
 
+#start API in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\api\api_to_sql_database.py
+#run in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\AIweerfiledashboard.py
 
 #%%
 
-#start API in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\api\api_to_sql_database.py
-#run in anaconda prompt: python Documents\GitHub\rgbijmanproductions\ALTEN\Files\AIweerfiledashboard\AIweerfiledashboard.py
 import pandas as pd
-import plotly.express as px
-from dash import Dash, dcc, html, Input, Output, State, callback, callback_context
+from dash import Dash
 import dash_bootstrap_components as dbc
-from Subfunctions import app_layout, callbacks, AIweerfile_functions
+from Subfunctions import app_layout, callbacks
 import sys
 
 if len(sys.argv)==1:
@@ -51,17 +50,17 @@ if use_pickle==1:
     print('loading the data')
     weather_data = pd.read_pickle(working_dir + r"\ProcessedData\weather_data")
     weather_data = weather_data.sort_values(by='date').set_index('date')
-    datac = pd.read_pickle(working_dir + r"\ProcessedData\datac")
-    datac = datac.sort_values(by=['DateTimeStart','weekday']).set_index('DateTimeStart')
+    traffic_data = pd.read_pickle(working_dir + r"\ProcessedData\datac")
+    traffic_data = traffic_data.sort_values(by=['DateTimeStart','weekday']).set_index('DateTimeStart')
     print('ready loading the data')
 else:
-    datac = None
+    traffic_data = None
     weather_data = None
 
 app = Dash(__name__,external_stylesheets=[dbc.themes.CERULEAN])
 
-app = app_layout.main(app, dcc, dbc, html, datac,weather_data,pd, api_base,AIweerfile_functions)
-callbacks.main(callback, Output, Input, State, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions,callback_context)
+app = app_layout.main(app,api_base)
+callbacks.main(weather_data,traffic_data,working_dir,api_base)
 
 if __name__ == "__main__":
     app.run_server(debug=True, use_reloader=False)

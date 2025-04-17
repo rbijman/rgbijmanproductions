@@ -8,15 +8,8 @@ Created on Fri Feb  7 13:50:23 2025
 
 # class python_postgres:
 
-#     def __init__(self,app,dcc,dbc,html,datac,weather_data,pd,api_base,AIweerfile_functions):
-#         self.dcc = dcc
-#         self.dbc = dbc
-#         self.html = html
-#         self.datac = datac
-#         self.weather_data = weather_data
-#         self.pd = pd
+#     def __init__(self,app,weather_data,api_base):
 #         self.api_base = api_base
-#         self.AIweerFile_functions = AIweerfile_functions
         
 #         app.layout = html.Div(children=[            
 #                 dcc.Tabs(value='further',children=[
@@ -25,21 +18,25 @@ Created on Fri Feb  7 13:50:23 2025
 #                     ])  
 #             ])
 #         return app
-                    
+                
+import pandas as pd
+from dash import dcc, html
+import dash_bootstrap_components as dbc
 
-def main(app,dcc,dbc,html,datac,weather_data,pd,api_base,AIweerfile_functions):
+
+def main(app,api_base):
     app.layout = html.Div(children=[             
             dcc.Tabs(value='further',children=[  #further
-                AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions),
-                update_data_tab(dcc,html,dbc,pd,AIweerfile_functions),
-                traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions),
-                weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions),
-                # heatmap_tab(dcc,html,datac),                
+                AIWeerFile_tab(api_base),
+                update_data_tab(),
+                traffic_tab(api_base),
+                weather_tab(api_base),
+                # heatmap_tab(),                
             ])  
     ])
     return app
 
-def update_data_tab(dcc,html,dbc,pd,AIweerfile_functions):
+def update_data_tab():
     tab_name = 'update_data'
     update_data_tab = dcc.Tab(id=tab_name,value=tab_name,label='Update data',children=[
     
@@ -77,7 +74,7 @@ def update_data_tab(dcc,html,dbc,pd,AIweerfile_functions):
 
     return update_data_tab
 
-def traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions):
+def traffic_tab(api_base):
     tab_name = 'traffic'
     trafic_tab = dcc.Tab(id=tab_name,value=tab_name,label='Traffic',children=[
     
@@ -99,7 +96,7 @@ def traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions):
             dcc.Dropdown(options=[],id=('road_select_{}').format(tab_name),style={'width':'100px'}), 
            
             html.Div(["Split by: "]),
-            __split_by_picker(dcc,tab_name),
+            __split_by_picker(tab_name),
             
             
         ],direction="horizontal",gap=3),
@@ -125,7 +122,7 @@ def traffic_tab(dcc,html,dbc,pd,datac,api_base,AIweerfile_functions):
     ])
     return trafic_tab
 
-def weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions):
+def weather_tab(api_base):
     tab_name = 'weather_and_traffic'
     weather_tab = dcc.Tab(id=tab_name,value=tab_name,label='Weather+Traffic',children=[
         html.H1(children="Weather + Traffic Analytics"),
@@ -149,13 +146,13 @@ def weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions
                 dcc.Dropdown(options=[],placeholder='Select another city',id=('city_select_{}').format(tab_name),style={'width':'300px'}),
                
                 html.Div(["Split by: "]),
-                __split_by_picker(dcc,tab_name),
+                __split_by_picker(tab_name),
                 
             ],direction="horizontal",gap=3),
             dbc.Stack([
                 
                 html.Div(["Select weather type: "]),
-                __weather_type_picker(dcc, tab_name),
+                __weather_type_picker(tab_name),
                 
             ],direction="horizontal",gap=3),
         ],gap=3),     
@@ -171,7 +168,7 @@ def weather_tab(dcc,html,dbc,pd,weather_data,datac,api_base,AIweerfile_functions
     ])
     return weather_tab
 
-def AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions):
+def AIWeerFile_tab(api_base):
     tab_name = 'further'
     
     new_tab = dcc.Tab(id=tab_name,value=tab_name,label='AIWeerFileDashboard',children=[
@@ -199,22 +196,22 @@ def AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions):
             ],direction="horizontal",gap=3),
             dbc.Stack([
                 html.Div(["Select traffic information: "]),
-                __trafic_information_picker(dcc,tab_name),
+                __trafic_information_picker(tab_name),
                  
                 html.Div(["Select traffic statistic: "]),
-                __statistic_picker(dcc,tab_name,'traffic'),
+                __statistic_picker(tab_name,'traffic'),
                 
                 html.Div(["Select traffic plot frequency: "]),
-                __frequence_picker(dcc,tab_name,'traffic'),
+                __frequence_picker(tab_name,'traffic'),
                 
                 html.Div(["Select weather type: "]),
-                __weather_type_picker(dcc, tab_name),
+                __weather_type_picker(tab_name),
 
                 html.Div(["Select weather plot frequency: "]),
-                __frequence_picker(dcc,tab_name,'weather'),
+                __frequence_picker(tab_name,'weather'),
                 
                 html.Div(["Select weather statistic: "]),
-                __statistic_picker(dcc,tab_name,'weather'),
+                __statistic_picker(tab_name,'weather'),
                 
                 html.Div(["Select weather marker size: "]),
                 dcc.Dropdown(list(range(8,17,1)),10,id=('weather_marker_size_{}').format(tab_name),style={'width':'100px'})
@@ -227,10 +224,10 @@ def AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions):
         html.Div([dcc.Markdown('''**Apply filters**''')]),
     
         html.Div(["Select weekdays of interest: "]),
-        __weekday_picker(dcc,tab_name),
+        __weekday_picker(tab_name),
         
         html.Div(["Select period on the day of interest: "]),
-        __period_picker(dcc,tab_name),
+        __period_picker(tab_name),
          
         html.Div(["Select rootcause: "]),
         dcc.Checklist(options=[],id=('rootcause_{}').format(tab_name),inline=True),
@@ -264,7 +261,7 @@ def AIWeerFile_tab(dcc,html,dbc,pd,api_base,AIweerfile_functions):
         ])
     return new_tab
 
-def heatmap_tab(dcc,html,datac):
+def heatmap_tab():
     tab_name = 'heatmap'
     heatmap_tab = dcc.Tab(id=tab_name,value=tab_name,label='Heatmap',children=[
         html.H1(children="Heatmap"),
@@ -284,24 +281,24 @@ def heatmap_tab(dcc,html,datac):
 
 
 #Helper functions
-def __split_by_picker(dcc,tab_name):
+def __split_by_picker(tab_name):
     return dcc.RadioItems(['no_split','direction','ampm','shortlong','weekday'], 'no_split',id=('split_by_{}').format(tab_name),inline=True)
 
-def __weather_type_picker(dcc,tab_name):
+def __weather_type_picker(tab_name):
     return dcc.Dropdown(options={'temperature_2m':'temperature','rain':'rain','snowfall':'snow','precipitation':'precipitation','wind_speed_10m':'wind','sunshine_duration':'sunshine'},value= 'temperature_2m',id=('weather_type_{}').format(tab_name),style={'width':'200px'})
 
-def __trafic_information_picker(dcc,tab_name):
+def __trafic_information_picker(tab_name):
     return dcc.Dropdown(options={'Duration':'duration','GemLengte':'distance'},value='Duration',id=('traffic_information_{}').format(tab_name),style={'width':'200px'})
 
-def __statistic_picker(dcc,tab_name,suffix):
+def __statistic_picker(tab_name,suffix):
     return dcc.Dropdown(['mean','max','min','sum','count'],'mean',id=('statistic_{}_{}').format(suffix,tab_name),style={'width':'100px'})
 
-def __weekday_picker(dcc,tab_name):
+def __weekday_picker(tab_name):
     return dcc.Checklist({'0':'mon','1':'tue','2':'wed','3':'thu','4':'fri','5':'sat','6':'sun','all':'all days'},['1'],id=('weekday_{}').format(tab_name),inline=True)
 
-def __period_picker(dcc,tab_name):
+def __period_picker(tab_name):
     return dcc.Checklist({'0-6':'night_morning','6-10':'morning','10-15':'noon','15-19':'evening','19-24':'night-evening','all':'all day'},['all'],id=('period_{}').format(tab_name),inline=True)
 
-def __frequence_picker(dcc,tab_name,suffix):
+def __frequence_picker(tab_name,suffix):
     return dcc.Dropdown(options={'ME':'month','D':'day','h':'hour'},value='D',id=('frequency_{}_{}').format(suffix,tab_name),style={'width':'100px'})
 

@@ -5,25 +5,34 @@ Created on Fri Feb  7 14:16:27 2025
 @author: rbijman
 """
 
-def main(callback, Output, Input, State, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions,callback_context):
-    update_data(callback, Output, Input, working_dir,AIweerfile_functions)
-    traffic(callback,Output,Input,pd,px,datac,working_dir,api_base,AIweerfile_functions)
-    AIWeerFile(callback, Output, Input, State, pd, px, weather_data,datac,working_dir,api_base,AIweerfile_functions,callback_context)
-    weather(callback,Output,Input,pd,px,weather_data,datac,api_base,AIweerfile_functions)
+import pandas as pd
+import plotly.express as px
+from dash import Input, Output, callback
+import plotly.graph_objects as go
+from scipy.stats import pearsonr
+from Subfunctions import AIweerfile_functions
+
+
+
+def main(weather_data,traffic_data,working_dir,api_base):
+    update_data(working_dir)
+    traffic(traffic_data,working_dir,api_base)
+    AIWeerFile(weather_data,traffic_data,working_dir,api_base)
+    weather(weather_data,traffic_data,api_base)
 
 # Callback to query the data once on app load and store it
-def get_dropdown_options(callback,Output,Input,pd,input_data,api_base,AIweerfile_functions,tab_name):
+def get_dropdown_options(input_data,api_base,tab_name):
     @callback(
         Output('dropdown_options_store_{}'.format(tab_name), 'data'),
         [Input('dropdown_options_store_{}'.format(tab_name), 'data')]
     )
     def load_dropdown_options_on_app_load(dropdown_options):
         if dropdown_options is None:
-            dropdown_options = __get_dropdown_options(pd,input_data,api_base,AIweerfile_functions)    
+            dropdown_options = __get_dropdown_options(input_data,api_base)    
         return dropdown_options
 
 
-def update_data(callback,Output,Input,working_dir,AIweerfile_functions):
+def update_data(working_dir):
     tab_name = 'update_data'
     @callback(
         Output(('loading_status_{}').format(tab_name),'value'),
@@ -39,40 +48,39 @@ def update_data(callback,Output,Input,working_dir,AIweerfile_functions):
         #update sql database contents with new data
         print_message = 'no data update done yet'
         if btn1>0 or btn2>0:          
-            datac, lat_lon_df, weather_per_city = AIweerfile_functions.collect_and_clean_AIweerfiledata(start_date,end_date,ampm_border,shortlong_border)  
-            # datac.columns = datac.columns.str.lower()
+            traffic_data, lat_lon_df, weather_per_city = AIweerfile_functions.collect_and_clean_AIweerfiledata(start_date,end_date,ampm_border,shortlong_border)  
             if btn1>0:
                 sql_table_to_update = 'trafics'
                 print_message = 'SQL traffic table updated'
-                data_to_update = datac
-                AIweerfile_functions.update_sql_database(working_dir,AIweerfile_functions,data_to_update,sql_table_to_update)
+                data_to_update = traffic_data
+                AIweerfile_functions.update_sql_database(working_dir,data_to_update,sql_table_to_update)
             elif btn2>0:
                 sql_table_to_update = 'weather'
                 print_message = 'SQL weather table updated'
                 data_to_update = weather_per_city
-                AIweerfile_functions.update_sql_database(working_dir,AIweerfile_functions,data_to_update,sql_table_to_update)
+                AIweerfile_functions.update_sql_database(working_dir,data_to_update,sql_table_to_update)
             print(print_message)
 
         
         #update pickle with sql database contents
         if btn3>0:
-            datac_file_path = working_dir + r"\ProcessedData\datac"
-            AIweerfile_functions.update_pickle_with_sql_database_data(AIweerfile_functions,working_dir,datac_file_path,'trafics')
+            traffic_data_file_path = working_dir + r"\ProcessedData\traffic_data"
+            AIweerfile_functions.update_pickle_with_sql_database_data(working_dir,traffic_data_file_path,'trafics')
             weather_per_city_path = working_dir + r"\ProcessedData\weather_data"
-            AIweerfile_functions.update_pickle_with_sql_database_data(AIweerfile_functions,working_dir,weather_per_city_path,'weather')
+            AIweerfile_functions.update_pickle_with_sql_database_data(working_dir,weather_per_city_path,'weather')
             print_message('pickles updated')
             
         return print_message
     return
 
-def traffic(callback,Output,Input,pd,px,datac,working_dir,api_base,AIweerfile_functions):
+def traffic(traffic_data,working_dir,api_base):
     tab_name = 'traffic'
-    input_data = {'traffic':datac,'weather':None}
-    get_dropdown_options(callback,Output,Input,pd,input_data,api_base,AIweerfile_functions,tab_name)
+    input_data = {'traffic':traffic_data,'weather':None}
+    get_dropdown_options(input_data,api_base,tab_name)
     dropdown_menus_to_populate = {'roads':'road_select_'+tab_name,'years':'year_select_'+tab_name,'months':'month_select_'+tab_name,'date_range':['date_range_'+tab_name,'min_date_allowed','max_date_allowed']}
     for dropdown_type, dropdown_id in dropdown_menus_to_populate.items():
-            __populate_dropdown_menu(callback,Output,Input,dropdown_type,dropdown_id,tab_name)
-    __select_dates(callback,Output,Input,pd,('date_range_{}').format(tab_name),('month_select_{}').format(tab_name),('year_select_{}').format(tab_name),input_data['traffic'],api_base,AIweerfile_functions)
+            __populate_dropdown_menu(dropdown_type,dropdown_id,tab_name)
+    __select_dates(('date_range_{}').format(tab_name),('month_select_{}').format(tab_name),('year_select_{}').format(tab_name),input_data['traffic'],api_base)
 
     @callback(
         Output(('graph_{}1').format(tab_name),'figure'), 
@@ -90,7 +98,7 @@ def traffic(callback,Output,Input,pd,px,datac,working_dir,api_base,AIweerfile_fu
             
         if load_data:    
             input_dict = {'road':road,'split_by':split_by,'date_range':(start_date,end_date)}
-            prepped_inputs = __prep_inputs(input_data['traffic'],api_base,AIweerfile_functions,input_dict)
+            prepped_inputs = __prep_inputs(input_data['traffic'],api_base,input_dict)
             
             traffic_settings = {}
             traffic_settings['table_name'] = 'trafics'
@@ -99,9 +107,9 @@ def traffic(callback,Output,Input,pd,px,datac,working_dir,api_base,AIweerfile_fu
             traffic_settings['date_column'] = "DateTimeStart"
             # time.sleep(1)
             all_queries = {}
-            all_queries['traffic'] = __combine_all_queries(prepped_inputs,traffic_settings['table_name'],traffic_settings['columns'],pd,traffic_settings['date_column'],traffic_settings['active_filters'])
+            all_queries['traffic'] = __combine_all_queries(prepped_inputs,traffic_settings['table_name'],traffic_settings['columns'],traffic_settings['date_column'],traffic_settings['active_filters'])
             
-            queried_traffic_data = __load_all_data(input_data,'traffic',all_queries,api_base,AIweerfile_functions,pd,start_date,end_date)     
+            queried_traffic_data = __load_all_data(input_data,'traffic',all_queries,api_base,start_date,end_date)     
     
             #resample the data
             traffic_plot_data = queried_traffic_data
@@ -119,25 +127,24 @@ def traffic(callback,Output,Input,pd,px,datac,working_dir,api_base,AIweerfile_fu
                 fig2['data'][0]['showlegend']=True
                 fig2['data'][0]['name']='Number of Traffics'
                 
-            # fig1 = __plot_files_HMpaal(pd,px,datac,start_date,end_date,split_by,road,excluded,working_dir,AIweerfile_functions)  
-            # fig2 = __plot_files_date(pd,px,datac,start_date,end_date,split_by,road)
+            # fig1 = __plot_files_HMpaal(traffic_data,start_date,end_date,split_by,road,excluded,working_dir)  
+            # fig2 = __plot_files_date(traffic_data,start_date,end_date,split_by,road)
             fig1 = fig2
         else:            
-            import plotly.graph_objects as go
             fig1 = go.Figure()
             fig2 = go.Figure()
         
         return fig1, fig2
     return
             
-def weather(callback,Output,Input,pd,px,weather_data,datac,api_base,AIweerfile_functions):
+def weather(weather_data,traffic_data,api_base):
     tab_name = 'weather_and_traffic'
-    input_data = {'traffic':datac,'weather':weather_data}
-    get_dropdown_options(callback,Output,Input,pd,input_data,api_base,AIweerfile_functions,tab_name)
+    input_data = {'traffic':traffic_data,'weather':weather_data}
+    get_dropdown_options(input_data,api_base,tab_name)
     dropdown_menus_to_populate = {'roads':'road_select_'+tab_name,'years':'year_select_'+tab_name,'months':'month_select_'+tab_name,'date_range':['date_range_'+tab_name,'min_date_allowed','max_date_allowed'],'cities':'city_select_' + tab_name}
     for dropdown_type, dropdown_id in dropdown_menus_to_populate.items():
-            __populate_dropdown_menu(callback,Output,Input,dropdown_type,dropdown_id,tab_name)
-    __select_dates(callback,Output,Input,pd,('date_range_{}').format(tab_name),('month_select_{}').format(tab_name),('year_select_{}').format(tab_name),datac,api_base,AIweerfile_functions)
+            __populate_dropdown_menu(dropdown_type,dropdown_id,tab_name)
+    __select_dates(('date_range_{}').format(tab_name),('month_select_{}').format(tab_name),('year_select_{}').format(tab_name),input_data['traffic'],api_base,)
 
     @callback(
         Output(('graph_{}').format(tab_name),'figure'), 
@@ -157,7 +164,7 @@ def weather(callback,Output,Input,pd,px,weather_data,datac,api_base,AIweerfile_f
         if load_data:
             
             input_dict = {'road':road,'split_by':split_by,'date_range':(start_date,end_date),'city':city}
-            prepped_inputs = __prep_inputs(input_data['traffic'],api_base,AIweerfile_functions,input_dict)
+            prepped_inputs = __prep_inputs(input_data['traffic'],api_base,input_dict)
             
             traffic_settings = {}
             traffic_settings['table_name'] = 'trafics'
@@ -172,33 +179,32 @@ def weather(callback,Output,Input,pd,px,weather_data,datac,api_base,AIweerfile_f
             weather_settings['date_column'] = "date"
             
             all_queries = {}
-            all_queries['traffic'] = __combine_all_queries(prepped_inputs,traffic_settings['table_name'],traffic_settings['columns'],pd,traffic_settings['date_column'],traffic_settings['active_filters'])
-            all_queries['weather'] = __combine_all_queries(prepped_inputs,weather_settings['table_name'],weather_settings['columns'],pd,weather_settings['date_column'],weather_settings['active_filters'])        
+            all_queries['traffic'] = __combine_all_queries(prepped_inputs,traffic_settings['table_name'],traffic_settings['columns'],traffic_settings['date_column'],traffic_settings['active_filters'])
+            all_queries['weather'] = __combine_all_queries(prepped_inputs,weather_settings['table_name'],weather_settings['columns'],weather_settings['date_column'],weather_settings['active_filters'])        
             
-            queried_traffic_data = __load_all_data(input_data,'traffic',all_queries,api_base,AIweerfile_functions,pd,start_date,end_date)     
-            queried_weather_data = __load_all_data(input_data,'weather',all_queries,api_base,AIweerfile_functions,pd,start_date,end_date)     
+            queried_traffic_data = __load_all_data(input_data,'traffic',all_queries,api_base,start_date,end_date)     
+            queried_weather_data = __load_all_data(input_data,'weather',all_queries,api_base,start_date,end_date)     
             print(queried_traffic_data.shape)
             
             
             fig2 = px.line(queried_weather_data.loc[start_date:end_date],color_discrete_sequence=['green'])                        
             fig2.update_traces(yaxis='y2')
             subfig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig1 = __plot_files_date(pd,px,queried_traffic_data,start_date,end_date,split_by,road)
+            fig1 = __plot_files_date(queried_traffic_data,start_date,end_date,split_by,road)
             subfig.add_traces(fig1.data + fig2.data)   
             subfig.update_layout(title_x=0.5,title_text=('Number of traffic on {} between {} and {} vs {} in {}').format(road,pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date(),weather_type,city)) 
         else:
-            import plotly.graph_objects as go
             subfig = go.Figure()
         return subfig
     
-def AIWeerFile(callback,Output,Input,State,pd,px,weather_data,datac,working_dir,api_base,AIweerfile_functions,callback_context):
+def AIWeerFile(weather_data,traffic_data,working_dir,api_base):
     tab_name = 'further'
-    input_data = {'traffic':datac,'weather':weather_data}
-    get_dropdown_options(callback,Output,Input,pd,input_data,api_base,AIweerfile_functions,tab_name)
+    input_data = {'traffic':traffic_data,'weather':weather_data}
+    get_dropdown_options(input_data,api_base,tab_name)
     dropdown_menus_to_populate = {'roads':'road_select_'+tab_name,'years':'year_select_'+tab_name,'months':'month_select_'+tab_name, 'date_range':['date_range_'+tab_name,'min_date_allowed','max_date_allowed'],'rootcauses':'rootcause_' + tab_name,'cities':'city_select_' + tab_name}
     for dropdown_type, dropdown_id in dropdown_menus_to_populate.items():
-            __populate_dropdown_menu(callback,Output,Input,dropdown_type,dropdown_id,tab_name)
-    __select_dates(callback,Output,Input,pd,('date_range_{}').format(tab_name),('month_select_{}').format(tab_name),('year_select_{}').format(tab_name),input_data['traffic'],api_base,AIweerfile_functions)
+            __populate_dropdown_menu(dropdown_type,dropdown_id,tab_name)
+    __select_dates(('date_range_{}').format(tab_name),('month_select_{}').format(tab_name),('year_select_{}').format(tab_name),input_data['traffic'],api_base)
         
     @callback(
         Output(('graph_{}').format(tab_name),'figure'),
@@ -227,7 +233,7 @@ def AIWeerFile(callback,Output,Input,State,pd,px,weather_data,datac,working_dir,
         )
     def update_output(start_date,end_date,city,weather_type,road,traffic_information,statistic_traffic,weekday,period,frequency_traffic,rootcause,statistic_weather,frequency_weather,weather_marker_size,clickdata,subtract_weekday_average):
         input_dict = {'road':road,'city':city,'weekday':weekday,'period':period,'rootcause':rootcause,'date_range':(start_date,end_date)}
-        prepped_inputs = __prep_inputs(input_data['traffic'],api_base,AIweerfile_functions,input_dict)
+        prepped_inputs = __prep_inputs(input_data['traffic'],api_base,input_dict)
         
         traffic_settings = {}
         traffic_settings['table_name'] = 'trafics'
@@ -245,8 +251,8 @@ def AIWeerFile(callback,Output,Input,State,pd,px,weather_data,datac,working_dir,
         all_queries['traffic'] = __combine_all_queries(prepped_inputs,traffic_settings['table_name'],traffic_settings['columns'],pd,traffic_settings['date_column'],traffic_settings['active_filters'])
         all_queries['weather'] = __combine_all_queries(prepped_inputs,weather_settings['table_name'],weather_settings['columns'],pd,weather_settings['date_column'],weather_settings['active_filters'])        
         
-        queried_traffic_data = __load_all_data(input_data,'traffic',all_queries,api_base,AIweerfile_functions,pd,start_date,end_date)     
-        queried_weather_data = __load_all_data(input_data,'weather',all_queries,api_base,AIweerfile_functions,pd,start_date,end_date)     
+        queried_traffic_data = __load_all_data(input_data,'traffic',all_queries,api_base,pd,start_date,end_date)     
+        queried_weather_data = __load_all_data(input_data,'weather',all_queries,api_base,pd,start_date,end_date)     
         print(queried_traffic_data.shape)
 
         #resample the data
@@ -265,7 +271,6 @@ def AIWeerFile(callback,Output,Input,State,pd,px,weather_data,datac,working_dir,
         df_aligned = traffic_plot_data.join(weather_plot_data, how='inner')  # 'inner' will align only common dates
         
         # Calculate the correlation
-        from scipy.stats import pearsonr
         if df_aligned.shape[0]>0:
             corr_coefficient, p_value = pearsonr(df_aligned[traffic_information], df_aligned[weather_type])
         else:
@@ -302,8 +307,8 @@ def AIWeerFile(callback,Output,Input,State,pd,px,weather_data,datac,working_dir,
         # op_vs_af = pd.crosstab(queried_data.Road,queried_data.direction,queried_data[traffic_information],aggfunc=statistic,dropna=True).fillna(pd.NA)  
         # short_vs_long = pd.crosstab(queried_data.Road,queried_data.shortlong,queried_data[traffic_information],aggfunc=statistic).fillna(pd.NA)  
         # am_vs_pm = pd.crosstab(queried_data.Road,queried_data.ampm,queried_data[traffic_information],aggfunc=statistic).fillna(pd.NA)   
-        # # per_weekday = pd.crosstab(queried_data.Road,queried_data.DateTimeStart.sort_values().dt.day_name().apply(lambda x:x[0:3]),datac[traffic_information],aggfunc=statistic)[['Mon','Thu','Wed','Thu','Fri','Sat','Sun']].fillna(pd.NA)  
-        # # per_month = pd.crosstab(queried_data.Road,queried_data.DateTimeStart.sort_values().dt.month_name().apply(lambda x: x[0:3]),datac[traffic_information],aggfunc=statistic).fillna(pd.NA)  
+        # # per_weekday = pd.crosstab(queried_data.Road,queried_data.DateTimeStart.sort_values().dt.day_name().apply(lambda x:x[0:3]),traffic_data[traffic_information],aggfunc=statistic)[['Mon','Thu','Wed','Thu','Fri','Sat','Sun']].fillna(pd.NA)  
+        # # per_month = pd.crosstab(queried_data.Road,queried_data.DateTimeStart.sort_values().dt.month_name().apply(lambda x: x[0:3]),traffic_data[traffic_information],aggfunc=statistic).fillna(pd.NA)  
         # rainy_vs_dry = pd.crosstab(queried_data.Road,queried_data.rainydry,queried_data[traffic_information],aggfunc=statistic).fillna(pd.NA)
         # temp_cat = pd.crosstab(queried_data.Road,queried_data.temp_cat,queried_data[traffic_information],aggfunc=statistic).fillna(pd.NA)
 
@@ -314,7 +319,7 @@ def AIWeerFile(callback,Output,Input,State,pd,px,weather_data,datac,working_dir,
         # heatmap = px.imshow(trafic_per_cat_ranked.T)
         
         nr_of_traffics_included = str(queried_traffic_data.shape[0])
-        total_pandas_query_output = 'datac.query("' + all_queries['traffic']['pandas']+ '")' + '.loc["'+pd.to_datetime(start_date).strftime('%Y-%m-%d').replace('-0','-')+'":"'+pd.to_datetime(end_date).strftime('%Y-%m-%d').replace('-0','-')+'"]'
+        total_pandas_query_output = 'traffic_data.query("' + all_queries['traffic']['pandas']+ '")' + '.loc["'+pd.to_datetime(start_date).strftime('%Y-%m-%d').replace('-0','-')+'":"'+pd.to_datetime(end_date).strftime('%Y-%m-%d').replace('-0','-')+'"]'
         return subfig,nr_of_traffics_included,total_pandas_query_output,all_queries['traffic']['API'],fig3,{"display": "none"}#,heatmap
     
     @callback(
@@ -327,7 +332,7 @@ def AIWeerFile(callback,Output,Input,State,pd,px,weather_data,datac,working_dir,
 
 #Helper functions
 
-def __select_dates(callback,Output,Input,pd,date_range_id,month_select_id,year_select_id,datac,api_base,AIweerfile_functions):
+def __select_dates(date_range_id,month_select_id,year_select_id,traffic_data,api_base):
     @callback(
         Output(date_range_id,'start_date'),
         Output(date_range_id,'end_date'),
@@ -336,12 +341,12 @@ def __select_dates(callback,Output,Input,pd,date_range_id,month_select_id,year_s
         )
     def update_start_date(year,month):
         if month == 'All' or year=='All': #This needs to be improved, but don't know how yet.
-            if datac is None:
+            if traffic_data is None:
                 start_date = pd.to_datetime(AIweerfile_functions.call_AIWeerFileAPI(api_base,'generic',"?query=SELECT MIN(" + '"DateTimeStart") FROM trafics')[0]).round('D')[0]
                 end_date = pd.to_datetime(AIweerfile_functions.call_AIWeerFileAPI(api_base,'generic',"?query=SELECT MAX(" + '"DateTimeStart") FROM trafics')[0]).round('D')[0]
             else:
-                start_date = pd.to_datetime(datac.index.min())
-                end_date = pd.to_datetime(datac.index.max())
+                start_date = pd.to_datetime(traffic_data.index.min())
+                end_date = pd.to_datetime(traffic_data.index.max())
         else:
             start_date= pd.to_datetime(('{}-{}').format(year,month))
             end_date = start_date+pd.DateOffset(months=1)-pd.DateOffset(days=1)
@@ -362,9 +367,8 @@ def __period_select(period):
             
     return period_total
     
-def __plot_files_HMpaal(pd,px,datac,start_date,end_date,split_by,road,excluded,working_dir,AIweerfile_functions):
-    # AIweerfile_functions = __import_AIweerfile_functions(working_dir)
-    datac['HPrange'] = datac.apply(lambda x: AIweerfile_functions.getHPrange(x['HPstart'],x['HPend']),axis=1)
+def __plot_files_HMpaal(traffic_data,start_date,end_date,split_by,road,excluded,working_dir):
+    traffic_data['HPrange'] = traffic_data.apply(lambda x: AIweerfile_functions.getHPrange(x['HPstart'],x['HPend']),axis=1)
 
     
     excluded_query = 'index==index'
@@ -373,7 +377,7 @@ def __plot_files_HMpaal(pd,px,datac,start_date,end_date,split_by,road,excluded,w
     if '>25km' in excluded:
         excluded_query = 'not distance>25'
     
-    fig = px.histogram(datac.query(excluded_query).loc[start_date:end_date].query('Road==@road').explode('HPrange'),x='HPrange',color=split_by,
+    fig = px.histogram(traffic_data.query(excluded_query).loc[start_date:end_date].query('Road==@road').explode('HPrange'),x='HPrange',color=split_by,
                        nbins=200,
                        labels='counts',
                        title=('Number of Traffics on {} between {} and {} per HMpaal').format(road,pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date())
@@ -387,8 +391,8 @@ def __plot_files_HMpaal(pd,px,datac,start_date,end_date,split_by,road,excluded,w
     
     return fig
     
-def __plot_files_date(pd,px,datac,start_date,end_date,split_by,road):
-    fig = px.histogram(datac.loc[start_date:end_date].query('Road==@road').reset_index(),x='DateTimeStart',color=split_by,
+def __plot_files_date(traffic_data,start_date,end_date,split_by,road):
+    fig = px.histogram(traffic_data.loc[start_date:end_date].query('Road==@road').reset_index(),x='DateTimeStart',color=split_by,
                        nbins=1000,
                        labels='counts',
                        title=('Number of Traffics on {} between {} and {}').format(road,pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date())
@@ -459,17 +463,17 @@ def __combine_all_queries(inputs,table_name,columns,pd,datecolumn,active_filters
     all_queries = {'pandas':total_pandas_query,'API':total_API_query}
     return all_queries
         
-def __prep_inputs(datac,api_base,AIweerfile_functions,input_dict):
+def __prep_inputs(traffic_data,api_base,input_dict):
     inputs = {}
     for k,v in input_dict.items():
         value = v
         match k:
             case 'road':
                 if v=='All':
-                    if datac is None:
+                    if traffic_data is None:
                         value = AIweerfile_functions.call_AIWeerFileAPI(api_base,'unique','?table=trafics&columns="Road"')
                     else: 
-                        value=list(datac.Road.unique())
+                        value=list(traffic_data.Road.unique())
                     inputs['plot_title_road']='All roads'
                 else:
                     value = [v]
@@ -478,14 +482,14 @@ def __prep_inputs(datac,api_base,AIweerfile_functions,input_dict):
                 if 'road' not in inputs:
                     raise KeyError('road needs to be given as input and should be in input_dict before city')
                 if v is None:
-                    if datac is None:
+                    if traffic_data is None:
                         if len(inputs['road'])==1:
                             tuple_road = tuple(inputs['road']+inputs['road'])
                         else:
                             tuple_road = tuple(inputs['road'])
                         value = AIweerfile_functions.call_AIWeerFileAPI(api_base,'generic','?query=SELECT traject_city, COUNT(*) as count FROM trafics WHERE "Road" IN' +f"{tuple_road} GROUP BY traject_city ORDER BY count DESC LIMIT 1")[0][0]
                     else:
-                        value = datac.query('Road in @road').traject_city.value_counts().index[0]
+                        value = traffic_data.query('Road in @road').traject_city.value_counts().index[0]
             case 'weekday':
                 if 'all' in v:
                     value = ['0','1','2','3','4','5','6']
@@ -510,7 +514,7 @@ def __define_datetime_range(clickdata,frequency,pd):
             date2 = date1
     return date1,date2
 
-def __load_all_data(input_data,data_type,all_queries,api_base,AIweerfile_functions,pd,start_date,end_date):
+def __load_all_data(input_data,data_type,all_queries,api_base,pd,start_date,end_date):
     match data_type:
         case 'traffic':
             if data_type in all_queries:
@@ -540,7 +544,7 @@ def __load_all_data(input_data,data_type,all_queries,api_base,AIweerfile_functio
                     
     return queried_data#, inputs, all_queries
 
-def __get_dropdown_options(pd,input_data,api_base,AIweerfile_functions):
+def __get_dropdown_options(input_data,api_base):
     
     #years
     if input_data['traffic'] is None:
@@ -567,7 +571,7 @@ def __get_dropdown_options(pd,input_data,api_base,AIweerfile_functions):
     return dropdown_options
 
 
-def __populate_dropdown_menu(callback,Output,Input,dropdown_name,dropdown_ids,tab_name): 
+def __populate_dropdown_menu(dropdown_name,dropdown_ids,tab_name): 
         # callback
         # Output
         # Input
@@ -605,31 +609,10 @@ def __populate_dropdown_menu(callback,Output,Input,dropdown_name,dropdown_ids,ta
                     
                 return output1, output2
 
-# def __get_settings(data_type,variable_column):
-#     #query the data into plot_data
-#     match data_type:
-#         case 'traffic':
-#             settings={}
-#             settings['table_name'] = 'trafics'
-#             settings['columns'] =  ' , '.join(['"DateTimeStart"','"Road"','"direction"','"shortlong"','"ampm"']) + ' , ' + '"' + variable_column + '"'        
-#             settings['active_filters'] = ['road','period','weekday','rootcause']
-#             settings['date_column'] = "DateTimeStart"
-#         case 'weather':       
-#             settings = {}
-#             settings['table_name'] = 'weather'
-#             settings['columns'] = ' , '.join(['date']) + ' , ' + '"' + variable_column + '"'
-#             settings['active_filters'] = ['weekday','period','city']
-#             settings['date_column'] = "date"
-#     return settings
-
-
-
-
-
 
 ### NOT IN USE NOW  
 
-# def __plot_on_map(pd,px,datac,weather_data):
+# def __plot_on_map(traffic_data,weather_data):
 #     import geopandas as gpd
 #     url1 = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
 #     world = gpd.read_file(url1)[['SOV_A3', 'POP_EST', 'CONTINENT', 'NAME', 'GDP_MD', 'geometry']]
@@ -639,7 +622,7 @@ def __populate_dropdown_menu(callback,Output,Input,dropdown_name,dropdown_ids,ta
 #     subfig = make_subplots()
     
 #     fig1 = world.query('SOV_A3=="NL1"').plot()
-#     fig2 = px.scatter(datac.query('Road=="A4"').groupby(by=['lat_middle','lon_middle']).Duration.mean().reset_index(),x='lon_middle',y='lat_middle',c='Duration')
+#     fig2 = px.scatter(traffic_data.query('Road=="A4"').groupby(by=['lat_middle','lon_middle']).Duration.mean().reset_index(),x='lon_middle',y='lat_middle',c='Duration')
 #     cities_of_interest = ['Utrecht','Amsterdam','Rotterdam','Gouda','Eindhoven','Zwolle','Groningen','Maastricht']
 #     test = weather_data.query("city in @cities_of_interest")
     
@@ -649,8 +632,3 @@ def __populate_dropdown_menu(callback,Output,Input,dropdown_name,dropdown_ids,ta
 #         subfig.add_annotation(text=test.city.iloc[idx], x=test.lon.iloc[idx],y=test.lat.iloc[idx])
 #     return subfig
 
-# def __import_AIweerfile_functions(working_dir):
-#     import sys
-#     sys.path.insert(0,working_dir + r"\AIweerfiledashboard\Subfunctions")
-#     import AIweerfile_functions
-#     return AIweerfile_functions
